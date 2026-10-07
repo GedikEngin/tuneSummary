@@ -115,7 +115,7 @@ def sign_in(c, email, remind=None):
 
 def test_pages_and_headers():
     c = TestClient(A.app)
-    for p in ["", "guide", "signin", "privacy", "terms", "app", "account"]:
+    for p in ["", "guide", "signin", "privacy", "terms", "app", "account", "recap", "supporter"]:
         r = c.get("/tunesummary/" + p)
         assert r.status_code == 200 and "TuneSummary" in r.text, p
         assert "default-src 'self'" in r.headers["content-security-policy"]
@@ -237,3 +237,49 @@ def test_genre_worker_shared_cache():
     assert w.step() >= 1
     d = c.get("/tunesummary/api/plays").json()
     assert d["genres"]["massive attack"][0][0] == "trip hop"
+
+
+def test_recap_pages():
+    c = TestClient(A.app)
+    for p in ["recap", "supporter"]:
+        r = c.get("/tunesummary/" + p)
+        assert r.status_code == 200 and "TuneSummary" in r.text, p
+    assert "media-src 'self' blob:" in r.headers["content-security-policy"]
+    for f in ["recap.js", "recapdata.js", "recapdraw.js"]:
+        assert c.get("/tunesummary/static/js/" + f).status_code == 200
+    assert c.get("/tunesummary/api/recap/access").status_code == 401
+
+
+def test_recap_gate(monkeypatch):
+    c = TestClient(A.app)
+    sign_in(c, "recap@example.com")
+    monkeypatch.setattr(A, "RECAP_GATE", "off")
+    assert c.get("/tunesummary/api/recap/access").json()["full"] is True
+    assert c.post("/tunesummary/api/recap/unlock/start").status_code == 400  # no ad flow when the gate is off
+
+    monkeypatch.setattr(A, "RECAP_GATE", "supporter")
+    a = c.get("/tunesummary/api/recap/access").json()
+    assert a["gate"] == "supporter" and a["full"] is False
+    assert c.post("/tunesummary/api/recap/unlock/start").status_code == 400
+    A.db.x("UPDATE users SET plan='supporter' WHERE email='recap@example.com'")
+    assert c.get("/tunesummary/api/recap/access").json()["full"] is True
+    A.db.x("UPDATE users SET plan='free' WHERE email='recap@example.com'")
+
+    monkeypatch.setattr(A, "RECAP_GATE", "ad")
+    monkeypatch.setattr(A, "RECAP_AD_SECONDS", 3)
+    assert c.get("/tunesummary/api/recap/access").json()["full"] is False
+    s = c.post("/tunesummary/api/recap/unlock/start").json()
+    assert s["seconds"] == 3 and len(s["nonce"]) == 32
+    assert c.post("/tunesummary/api/recap/unlock/finish", json={"nonce": s["nonce"]}).status_code == 400  # too early
+    assert c.post("/tunesummary/api/recap/unlock/finish", json={"nonce": "f" * 32}).status_code == 400
+    # another session of the same user can't finish this view
+    c2 = TestClient(A.app)
+    sign_in(c2, "recap@example.com")
+    A.db.x("UPDATE recap_unlocks SET started_at=started_at-10")
+    assert c2.post("/tunesummary/api/recap/unlock/finish", json={"nonce": s["nonce"]}).status_code == 400
+    assert c.post("/tunesummary/api/recap/unlock/finish", json={"nonce": s["nonce"]}).json() == {"full": True}
+    assert c.get("/tunesummary/api/recap/access").json()["full"] is True
+    assert c2.get("/tunesummary/api/recap/access").json()["full"] is False  # unlock is per sign-in session
+    uid = A.db.one("SELECT id FROM users WHERE email='recap@example.com'")["id"]
+    c.post("/tunesummary/api/delete-account", json={"confirm": "recap@example.com"})
+    assert A.db.one("SELECT COUNT(*) n FROM recap_unlocks WHERE user_id=?", (uid,))["n"] == 0

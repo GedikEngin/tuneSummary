@@ -36,6 +36,8 @@ GOOGLE_ID = os.environ.get("TS_GOOGLE_CLIENT_ID", "")
 GOOGLE_SECRET = os.environ.get("TS_GOOGLE_CLIENT_SECRET", "")
 ADS_CLIENT = os.environ.get("TS_ADSENSE_CLIENT", "")      # e.g. ca-pub-123…; empty = no ads anywhere
 ADS_SLOT = os.environ.get("TS_ADSENSE_SLOT", "")
+RECAP_GATE = os.environ.get("TS_RECAP_GATE", "off").strip().lower()  # off | ad | supporter
+RECAP_AD_SECONDS = int(os.environ.get("TS_RECAP_AD_SECONDS", "15"))  # rewarded-ad placeholder length
 REMIND_UNIT = float(os.environ.get("TS_REMIND_UNIT_SECONDS", "86400"))  # one "day" (shorter for tests)
 LINK_MINUTES = 20
 SESSION_DAYS = 90
@@ -65,10 +67,10 @@ def csp():
     if ADS_CLIENT:  # AdSense needs its own script + frame hosts
         script += " https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.gstatic.com https://*.adtrafficquality.google"
         frame = "https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.adtrafficquality.google"
-    img = "'self' data:" + (" https:" if ADS_CLIENT else "")
+    img = "'self' data: blob:" + (" https:" if ADS_CLIENT else "")
     connect = "'self'" + (" https:" if ADS_CLIENT else "")
     return (f"default-src 'self'; script-src {script}; style-src 'self' 'unsafe-inline'; img-src {img}; "
-            f"connect-src {connect}; frame-src {frame}; font-src 'self'; form-action 'self' https://accounts.google.com; "
+            f"connect-src {connect}; frame-src {frame}; font-src 'self'; media-src 'self' blob:; form-action 'self' https://accounts.google.com; "
             "base-uri 'self'; frame-ancestors 'none'")
 
 
@@ -355,7 +357,7 @@ def api_plays_delete(req: Request):
 def delete_user(uid, email):
     def run(c):
         for sql, a in (("DELETE FROM plays WHERE user_id=?", uid), ("DELETE FROM uploads WHERE user_id=?", uid),
-                       ("DELETE FROM sessions WHERE user_id=?", uid), ("DELETE FROM login_tokens WHERE email=?", email),
+                       ("DELETE FROM sessions WHERE user_id=?", uid), ("DELETE FROM recap_unlocks WHERE user_id=?", uid), ("DELETE FROM login_tokens WHERE email=?", email),
                        ("DELETE FROM rate_events WHERE k IN (?,?)", None), ("DELETE FROM users WHERE id=?", uid)):
             if a is None:
                 c.execute(sql, ("em15:" + H(email)[:24], "emday:" + H(email)[:24]))
@@ -375,6 +377,60 @@ async def api_delete_account(req: Request):
     resp = JSONResponse({"deleted": True})
     resp.delete_cookie(COOKIE, path=BASE)
     return resp
+
+
+# ---------------- recap (animated story) gate ----------------
+# The recap is computed in the browser from the user's own plays, so the gate is about the experience, not secrecy:
+# the server decides who gets the full story (supporter plan from the DB, or a recorded ad unlock for this session).
+def recap_full(req: Request, u):
+    if RECAP_GATE not in ("ad", "supporter"):
+        return True
+    if u["plan"] == "supporter":
+        return True
+    if RECAP_GATE == "ad":
+        tok = req.cookies.get(COOKIE) or ""
+        return bool(db.one("SELECT 1 FROM recap_unlocks WHERE session_hash=? AND done_at IS NOT NULL", (H(tok),)))
+    return False
+
+
+@r.get("/api/recap/access")
+def api_recap_access(req: Request):
+    u = need_user(req)
+    db.count("recap_open")
+    return {"gate": RECAP_GATE if RECAP_GATE in ("ad", "supporter") else "off", "plan": u["plan"],
+            "full": recap_full(req, u), "ad_seconds": RECAP_AD_SECONDS}
+
+
+@r.post("/api/recap/unlock/start")
+def api_recap_unlock_start(req: Request):
+    """Starts a rewarded-ad view. Later: hand the nonce to Google Ad Manager's rewarded-ad callback."""
+    u = need_user(req)
+    if RECAP_GATE != "ad":
+        raise HTTPException(400, "Ad unlocks aren't enabled.")
+    if limited("recapad:%d" % u["id"], 30, 3600):
+        raise HTTPException(429, "Too many tries. Try again later.")
+    nonce = secrets.token_hex(16)
+    db.x("INSERT INTO recap_unlocks(nonce_hash, session_hash, user_id, started_at) VALUES(?,?,?,?)",
+         (H(nonce), H(req.cookies.get(COOKIE) or ""), u["id"], time.time()))
+    return {"nonce": nonce, "seconds": RECAP_AD_SECONDS}
+
+
+@r.post("/api/recap/unlock/finish")
+async def api_recap_unlock_finish(req: Request):
+    u = need_user(req)
+    try:
+        nonce = str((await req.json()).get("nonce", ""))
+    except ValueError:
+        raise HTTPException(400, "bad request")
+    row = db.one("SELECT * FROM recap_unlocks WHERE nonce_hash=? AND user_id=?", (H(nonce), u["id"])) if nonce else None
+    if not row or row["session_hash"] != H(req.cookies.get(COOKIE) or ""):
+        raise HTTPException(400, "Unknown ad view.")
+    if time.time() - row["started_at"] < RECAP_AD_SECONDS - 1:
+        raise HTTPException(400, "The ad hasn't finished yet.")
+    if not row["done_at"]:
+        db.x("UPDATE recap_unlocks SET done_at=? WHERE nonce_hash=?", (time.time(), H(nonce)))
+        db.count("recap_unlock_ad")
+    return {"full": True}
 
 
 # ---------------- unsubscribe (works without signing in) ----------------
@@ -425,6 +481,7 @@ def housekeeping():
     db.x("DELETE FROM sessions WHERE expires_at<?", (now,))
     db.x("DELETE FROM rate_events WHERE at<?", (now - 2 * 86400,))
     db.x("DELETE FROM email_log WHERE at<?", (now - 30 * 86400,))
+    db.x("DELETE FROM recap_unlocks WHERE started_at<?", (now - SESSION_DAYS * 86400,))
 
 
 def scheduler():
@@ -446,7 +503,7 @@ def _start():
 
 # ---------------- pages ----------------
 PAGES = {"": "index.html", "guide": "guide.html", "signin": "signin.html", "app": "app.html", "account": "account.html",
-         "privacy": "privacy.html", "terms": "terms.html"}
+         "privacy": "privacy.html", "terms": "terms.html", "recap": "recap.html", "supporter": "supporter.html"}
 
 
 def render(fn, **subs):

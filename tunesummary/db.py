@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS artists (
     image TEXT,                            -- hook for artwork (phase 2)
     checked_at REAL
 );
+-- Rewarded-ad views for the recap ("ad" gate): one row per started view, done_at set when it finished.
+CREATE TABLE IF NOT EXISTS recap_unlocks (
+    nonce_hash TEXT PRIMARY KEY,
+    session_hash TEXT NOT NULL,            -- unlock lasts for this sign-in session
+    user_id INTEGER NOT NULL,
+    started_at REAL NOT NULL,
+    done_at REAL
+);
+CREATE INDEX IF NOT EXISTS recap_unlocks_session ON recap_unlocks(session_hash);
 CREATE TABLE IF NOT EXISTS counters (day TEXT NOT NULL, name TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, name));
 """
 
