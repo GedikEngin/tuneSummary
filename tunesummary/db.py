@@ -65,6 +65,16 @@ CREATE TABLE IF NOT EXISTS recap_unlocks (
     done_at REAL
 );
 CREATE INDEX IF NOT EXISTS recap_unlocks_session ON recap_unlocks(session_hash);
+-- Last.fm track lengths (shared cache, like artists): k = lower(artist) + U+0001 + lower(track), ms 0 = unknown.
+CREATE TABLE IF NOT EXISTS track_lengths (k TEXT PRIMARY KEY, ms INTEGER NOT NULL, checked_at REAL);
+-- Rewarded-ad views for "update my latest stats" (TS_LIVE_GATE=ad): one row per started view.
+CREATE TABLE IF NOT EXISTS live_refreshes (
+    nonce_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    started_at REAL NOT NULL,
+    done_at REAL
+);
+CREATE INDEX IF NOT EXISTS live_refreshes_user ON live_refreshes(user_id, done_at);
 CREATE TABLE IF NOT EXISTS counters (day TEXT NOT NULL, name TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, name));
 """
 
@@ -78,6 +88,21 @@ class DB:
         self.conn.execute("PRAGMA synchronous=NORMAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.executescript(SCHEMA)
+        self.migrate()
+
+    # Columns added after launch (ALTER TABLE is a no-op if they exist).
+    ADD = {"plays": [("source", "TEXT")],   # NULL = Spotify export, 'lastfm' = scrobble
+           "users": [("lastfm_user", "TEXT"), ("lastfm_verified", "INTEGER NOT NULL DEFAULT 0"),
+                     ("lastfm_linked_at", "REAL"), ("lastfm_cursor", "INTEGER"),  # newest imported scrobble (unix s)
+                     ("lastfm_state", "TEXT"), ("lastfm_error", "TEXT"),          # queued | syncing | ok | error
+                     ("lastfm_synced_at", "REAL"), ("lastfm_tried_at", "REAL"), ("lastfm_added", "INTEGER")]}
+
+    def migrate(self):
+        for table, cols in self.ADD.items():
+            have = {r["name"] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+            for name, decl in cols:
+                if name not in have:
+                    self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
 
     def q(self, sql, args=()):
         with self.lock:

@@ -122,7 +122,8 @@ def test_pages_and_headers():
     assert c.get("/tunesummary", follow_redirects=False).headers["location"] == "/tunesummary/"
     assert c.get("/tunesummary/static/css/ts.css").status_code == 200
     assert c.get("/tunesummary/api/me").status_code == 401
-    assert c.get("/tunesummary/api/config").json() == {"google": False, "ads": None, "signed_in": False}
+    assert c.get("/tunesummary/api/config").json() == {"google": False, "ads": None, "signed_in": False,
+                                                       "lastfm": False, "lastfm_auth": False, "live_gate": "off"}
 
 
 def test_magic_link_single_use_and_bad_tokens():

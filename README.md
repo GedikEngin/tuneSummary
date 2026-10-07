@@ -20,6 +20,35 @@ Live at **https://gedik.tech/tunesummary/**. Not affiliated with Spotify.
 
 No Spotify API calls are made.
 
+## Live updates (Last.fm)
+
+An export is a snapshot, so users can optionally link a **Last.fm** profile (Spotify scrobbles to Last.fm once they
+connect it under Last.fm → Settings → Applications). `tunesummary/lastfm.py` imports scrobbles from
+`user.getRecentTracks` (200 per page, `from=` the newest one we have) as plays with `source='lastfm'`:
+
+- **The export wins.** Only scrobbles that *started after* the export's last play are imported, and uploading a newer
+  export deletes scrobbles inside its window, so nothing is counted twice.
+- **Lengths are estimated** (Last.fm doesn't record them): the longest play of that track in the user's own export,
+  else `track.getInfo` (shared cache, max 150 lookups per sync), else 3.5 min. Rows are stored with `ts` = start + length,
+  like exports.
+- First sync goes back to the export's end or at most 12 months; big backlogs are fetched oldest-first, 150 pages per run.
+- One background worker does all syncs, ≤ 4 requests/s, backing off on Last.fm error 29. Private profiles (error 17) get a
+  clear message.
+- Linking: Last.fm web auth (`/auth/lastfm` → `auth.getSession`, only the verified username is kept) when
+  `TS_LASTFM_SHARED_SECRET` is set, otherwise a public username (checked with `user.getInfo`).
+
+Who can refresh is set by `TS_LIVE_GATE` (same idea as the recap gate; the first sync after linking is always free):
+
+| Value | "↻ Update my latest stats" | Background sync |
+|---|---|---|
+| `off` (default) | syncs now, at most every `TS_LIVE_MANUAL_MINUTES` | everyone, every `TS_LIVE_AUTO_HOURS` |
+| `ad` | free users watch a rewarded ad (`/api/lastfm/refresh/ad/start` → `/finish`, server-recorded), once per `TS_LIVE_AD_HOURS`; supporters skip it | supporters, every `TS_LIVE_SUPPORTER_HOURS` |
+| `supporter` | supporters only | supporters, every `TS_LIVE_SUPPORTER_HOURS` |
+
+Last.fm's API terms apply: credit ("Powered by AudioScrobbler", linking to Last.fm) is shown wherever Last.fm data is
+used, and the API is licensed for **non-commercial use** only. Switching `TS_LIVE_GATE` to `ad`/`supporter` (or running
+ads next to Last.fm data) needs a commercial agreement with Last.fm (partners@last.fm) first.
+
 ## Recap story
 
 `/tunesummary/recap` plays an animated, tap-through story of a period (since the last year-end cutoff, any year, or all time):
@@ -40,6 +69,12 @@ Access is set by `TS_RECAP_GATE`:
 Everyone else gets intro, minutes, top artist and the summary card. The ad itself is a placeholder hook
 (`window.TSRewarded.show(box, seconds)` in `recap.js`) meant to be swapped for Google Ad Manager rewarded ads. Users can download all their data as JSON or delete their account at any time.
 
+## Link previews
+
+Every page gets a canonical URL, Open Graph + Twitter card tags and icons from `social()` in `app.py`. The preview image
+`web/static/og.png` (1200×630) is rendered from `scripts/og.html` in headless Chrome against a live page (so the
+self-hosted fonts load).
+
 ## Stack
 
 Python 3.11+, FastAPI, SQLite (WAL), plain HTML/CSS/JS (no build step, no third-party scripts).
@@ -49,6 +84,7 @@ The look follows the "Survey" design system of [gedik.tech](https://gedik.tech).
 tunesummary/app.py      routes, auth, sessions, reminders scheduler
 tunesummary/ingest.py   upload validation, storage, export
 tunesummary/genres.py   MusicBrainz genre worker
+tunesummary/lastfm.py   Last.fm client, scrobble import + dedupe, sync worker
 tunesummary/mailer.py   email sending (SMTP or log backend; swap for an API provider here)
 tunesummary/emails.py   email texts
 web/                    pages + static/{css,js,fonts}
@@ -75,6 +111,8 @@ Configuration is all environment variables; see `.env.example`. Notable ones:
 | `TS_ADSENSE_CLIENT/SLOT` | enables the single ad slot (off by default; never shown to `supporter` plan users) |
 | `TS_RECAP_GATE` | `off` / `ad` / `supporter`: who gets the full recap (see above) |
 | `TS_RECAP_AD_SECONDS` | length of the rewarded-ad placeholder (default 15) |
+| `TS_LASTFM_API_KEY` / `_SHARED_SECRET` | enables Last.fm live updates (hidden when empty); the secret switches linking to Last.fm web auth |
+| `TS_LIVE_GATE` | `off` / `ad` / `supporter`: who can refresh from Last.fm (see above) |
 
 ## Tests
 
@@ -87,8 +125,9 @@ node tests/test_recap.js [path/to/my_spotify_data.zip]  # recap numbers, archety
 ## Data model
 
 `users` (email, plan `free|supporter`, reminder state), `sessions` and `login_tokens` (only SHA-256 hashes
-are stored), `plays` (unique on user, timestamp, track, episode), `artists` (shared genre cache),
-`recap_unlocks` (rewarded-ad views, by session hash), `counters` (daily page-view / sign-up counts, no identifiers).
+are stored), `plays` (unique on user, timestamp, track, episode; `source` NULL = export, `lastfm` = scrobble), `artists` (shared genre cache),
+`recap_unlocks` (rewarded-ad views, by session hash), `live_refreshes` (ad-paid Last.fm refreshes), `track_lengths`
+(shared Last.fm track-length cache), `counters` (daily page-view / sign-up counts, no identifiers).
 
 ## License
 

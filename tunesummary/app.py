@@ -20,7 +20,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import emails, ingest
+from . import emails, ingest, lastfm
 from .db import DB
 from .genres import GenreWorker
 from .mailer import CapReached, Mailer
@@ -38,6 +38,14 @@ ADS_CLIENT = os.environ.get("TS_ADSENSE_CLIENT", "")      # e.g. ca-pub-123…; 
 ADS_SLOT = os.environ.get("TS_ADSENSE_SLOT", "")
 RECAP_GATE = os.environ.get("TS_RECAP_GATE", "off").strip().lower()  # off | ad | supporter
 RECAP_AD_SECONDS = int(os.environ.get("TS_RECAP_AD_SECONDS", "15"))  # rewarded-ad placeholder length
+LASTFM_KEY = os.environ.get("TS_LASTFM_API_KEY", "").strip()            # empty = no Last.fm features anywhere
+LASTFM_SECRET = os.environ.get("TS_LASTFM_SHARED_SECRET", "").strip()   # set = verify ownership via Last.fm web auth
+LIVE_GATE = os.environ.get("TS_LIVE_GATE", "off").strip().lower()       # off | ad | supporter (who can refresh, see README)
+LIVE_AD_SECONDS = int(os.environ.get("TS_LIVE_AD_SECONDS", str(RECAP_AD_SECONDS)))
+LIVE_AD_HOURS = float(os.environ.get("TS_LIVE_AD_HOURS", "3"))          # one ad-paid refresh per this many hours
+LIVE_AUTO_HOURS = float(os.environ.get("TS_LIVE_AUTO_HOURS", "24"))     # background sync for everyone when gate=off
+LIVE_SUPPORTER_HOURS = float(os.environ.get("TS_LIVE_SUPPORTER_HOURS", "4"))  # background sync for supporters
+LIVE_MANUAL_MINUTES = float(os.environ.get("TS_LIVE_MANUAL_MINUTES", "15"))   # free button presses (off / supporters)
 REMIND_UNIT = float(os.environ.get("TS_REMIND_UNIT_SECONDS", "86400"))  # one "day" (shorter for tests)
 LINK_MINUTES = 20
 SESSION_DAYS = 90
@@ -50,6 +58,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 db = DB(str(DATA_DIR / "tunesummary.db"))
 mailer = Mailer(db, DATA_DIR)
 genres = GenreWorker(db)
+lfm = lastfm.Client(LASTFM_KEY, LASTFM_SECRET) if LASTFM_KEY else None
 
 app = FastAPI(title="TuneSummary", docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(GZipMiddleware, minimum_size=1500)
@@ -262,7 +271,8 @@ def api_config(req: Request):
     ads = None
     if ADS_CLIENT and not (u and u["plan"] == "supporter"):
         ads = {"client": ADS_CLIENT, "slot": ADS_SLOT}
-    return {"google": bool(GOOGLE_ID and GOOGLE_SECRET), "ads": ads, "signed_in": bool(u)}
+    return {"google": bool(GOOGLE_ID and GOOGLE_SECRET), "ads": ads, "signed_in": bool(u),
+            "lastfm": bool(lfm), "lastfm_auth": bool(lfm and LASTFM_SECRET), "live_gate": live_gate()}
 
 
 @r.get("/api/me")
@@ -275,7 +285,8 @@ def api_me(req: Request):
             "reminders": bool(u["reminders"]), "remind_at": u["remind_at"] and u["remind_at"] * 1000,
             "plays": p["n"], "first": p["first"], "last": p["last"], "extended": bool(p["ext"]),
             "last_upload": u["last_upload"] and u["last_upload"] * 1000,
-            "genres": {"done": g["done"], "total": g["total"]}}
+            "genres": {"done": g["done"], "total": g["total"]},
+            "lastfm": lastfm_status(u) if lfm else None}
 
 
 @r.post("/api/reminders")
@@ -350,14 +361,15 @@ def api_plays_delete(req: Request):
     u = need_user(req)
     n = db.x("DELETE FROM plays WHERE user_id=?", (u["id"],)).rowcount
     db.x("DELETE FROM uploads WHERE user_id=?", (u["id"],))
-    db.x("UPDATE users SET last_upload=NULL WHERE id=?", (u["id"],))
+    db.x("UPDATE users SET last_upload=NULL, lastfm_cursor=NULL WHERE id=?", (u["id"],))
     return {"deleted_plays": n}
 
 
 def delete_user(uid, email):
     def run(c):
         for sql, a in (("DELETE FROM plays WHERE user_id=?", uid), ("DELETE FROM uploads WHERE user_id=?", uid),
-                       ("DELETE FROM sessions WHERE user_id=?", uid), ("DELETE FROM recap_unlocks WHERE user_id=?", uid), ("DELETE FROM login_tokens WHERE email=?", email),
+                       ("DELETE FROM sessions WHERE user_id=?", uid), ("DELETE FROM recap_unlocks WHERE user_id=?", uid),
+                       ("DELETE FROM live_refreshes WHERE user_id=?", uid), ("DELETE FROM login_tokens WHERE email=?", email),
                        ("DELETE FROM rate_events WHERE k IN (?,?)", None), ("DELETE FROM users WHERE id=?", uid)):
             if a is None:
                 c.execute(sql, ("em15:" + H(email)[:24], "emday:" + H(email)[:24]))
@@ -433,6 +445,234 @@ async def api_recap_unlock_finish(req: Request):
     return {"full": True}
 
 
+# ---------------- live updates via Last.fm ----------------
+# Spotify scrobbles to Last.fm when the user connects them; we import those scrobbles (see lastfm.py).
+# TS_LIVE_GATE decides who may refresh and how often (same idea as the recap gate):
+#   off       → "Update" button syncs right away (rate-limited) + everyone gets a background sync every LIVE_AUTO_HOURS
+#   ad        → free users press "Update", watch a rewarded ad (server-recorded), then it syncs; once per LIVE_AD_HOURS
+#   supporter → supporters get background syncs every LIVE_SUPPORTER_HOURS + the button; free users only the first sync
+# In every mode the first sync after linking is free, and supporters never see ads.
+LASTFM_USER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{1,14}$")
+
+
+def live_gate():
+    return LIVE_GATE if LIVE_GATE in ("ad", "supporter") else "off"
+
+
+def live_due(now):
+    """User ids whose background sync is due (called by the worker when nothing is queued)."""
+    sup = "plan='supporter' AND " if live_gate() != "off" else ""
+    hours = LIVE_SUPPORTER_HOURS if sup else LIVE_AUTO_HOURS
+    return [r["id"] for r in db.q(f"""SELECT id FROM users WHERE {sup} lastfm_user IS NOT NULL
+               AND ((COALESCE(lastfm_state, 'ok')='ok' AND COALESCE(lastfm_synced_at, 0) < ?)
+                    OR (lastfm_state='error' AND COALESCE(lastfm_tried_at, 0) < ?))
+               ORDER BY COALESCE(lastfm_synced_at, 0) LIMIT 20""", (now - hours * 3600, now - 6 * 3600))]
+
+
+def live_synced(uid, added):
+    if added:
+        genres.wake.set()
+
+
+live = lastfm.SyncWorker(db, lfm, live_due, live_synced)
+
+
+def queue_sync(uid):
+    db.x("UPDATE users SET lastfm_state='queued', lastfm_tried_at=? WHERE id=?", (time.time(), uid))
+    live.wake.set()
+
+
+def last_ad_refresh(uid):
+    r = db.one("SELECT MAX(done_at) t FROM live_refreshes WHERE user_id=? AND done_at IS NOT NULL", (uid,))
+    return r["t"] or 0
+
+
+def refresh_policy(u):
+    """What the "Update my latest stats" button does for this user right now:
+    ("sync" | "ad" | "supporter", unix time when the next refresh is allowed)."""
+    gate = live_gate()
+    if gate == "off" or u["plan"] == "supporter":
+        nxt = 0 if u["lastfm_state"] == "error" else (u["lastfm_tried_at"] or 0) + LIVE_MANUAL_MINUTES * 60
+        return "sync", nxt
+    if gate == "ad":
+        return "ad", last_ad_refresh(u["id"]) + LIVE_AD_HOURS * 3600
+    return "supporter", 0
+
+
+def lastfm_status(u):
+    if not u["lastfm_user"]:
+        return {"linked": False, "gate": live_gate()}
+    mode, nxt = refresh_policy(u)
+    n = db.one("SELECT COUNT(*) n FROM plays WHERE user_id=? AND source='lastfm'", (u["id"],))["n"]
+    auto = None
+    if live_gate() == "off":
+        auto = LIVE_AUTO_HOURS
+    elif u["plan"] == "supporter":
+        auto = LIVE_SUPPORTER_HOURS
+    return {"linked": True, "user": u["lastfm_user"], "verified": bool(u["lastfm_verified"]),
+            "profile": "https://www.last.fm/user/" + urllib.parse.quote(u["lastfm_user"]),
+            "state": u["lastfm_state"] or "ok", "error": u["lastfm_error"], "plays": n,
+            "synced_at": u["lastfm_synced_at"] and u["lastfm_synced_at"] * 1000, "added": u["lastfm_added"],
+            "gate": live_gate(), "mode": mode, "next_at": nxt * 1000 if nxt > time.time() else None,
+            "auto_hours": auto, "ad_seconds": LIVE_AD_SECONDS}
+
+
+def need_lastfm():
+    if not lfm:
+        raise HTTPException(404, "Last.fm isn't set up on this server.")
+
+
+def link_lastfm(uid, name, verified):
+    old = db.one("SELECT lastfm_user FROM users WHERE id=?", (uid,))["lastfm_user"]
+    if old and old.lower() != name.lower():  # another profile: its scrobbles go
+        db.x("DELETE FROM plays WHERE user_id=? AND source='lastfm'", (uid,))
+        db.x("UPDATE users SET lastfm_cursor=NULL WHERE id=?", (uid,))
+    db.x("""UPDATE users SET lastfm_user=?, lastfm_verified=?, lastfm_linked_at=?, lastfm_error=NULL,
+            lastfm_synced_at=CASE WHEN ? THEN lastfm_synced_at END WHERE id=?""",
+         (name, int(verified), time.time(), int(bool(old and old.lower() == name.lower())), uid))
+    db.count("lastfm_link")
+    queue_sync(uid)  # the first sync is always free
+
+
+@r.get("/api/lastfm")
+def api_lastfm(req: Request):
+    need_lastfm()
+    return lastfm_status(need_user(req))
+
+
+@r.post("/api/lastfm/link")
+async def api_lastfm_link(req: Request):
+    """Link by username (only when web auth isn't configured). History must be public; we check the user exists."""
+    need_lastfm()
+    u = need_user(req)
+    if LASTFM_SECRET:
+        raise HTTPException(400, "Use \"Connect with Last.fm\" to link your profile.")
+    try:
+        name = str((await req.json()).get("username", "")).strip()
+    except ValueError:
+        raise HTTPException(400, "bad request")
+    if not LASTFM_USER_RE.match(name):
+        raise HTTPException(400, "That doesn't look like a Last.fm username.")
+    if limited("lfmlink:%d" % u["id"], 10, 3600):
+        raise HTTPException(429, "Too many tries. Try again later.")
+    try:
+        info = lfm.user_info(name)
+    except lastfm.LastfmError as e:
+        if e.code == 6:
+            raise HTTPException(404, "No Last.fm user with that name.")
+        raise HTTPException(502, "Last.fm didn't answer. Try again in a minute.")
+    link_lastfm(u["id"], info.get("name") or name, False)
+    return lastfm_status(need_user(req))
+
+
+@r.get("/auth/lastfm")
+def lastfm_start(req: Request):
+    need_lastfm()
+    if not LASTFM_SECRET:
+        raise HTTPException(404, "Last.fm sign-in isn't set up.")
+    if not user_of(req):
+        return RedirectResponse(BASE + "/signin", status_code=303)
+    state = secrets.token_hex(16)
+    resp = RedirectResponse(lfm.auth_url(f"{PUBLIC_URL}/auth/lastfm/callback?s={state}"))
+    resp.set_cookie("ts_lstate", state, max_age=900, httponly=True, samesite="lax", secure=SECURE, path=BASE)
+    return resp
+
+
+@r.get("/auth/lastfm/callback")
+def lastfm_callback(req: Request, s: str = "", token: str = ""):
+    need_lastfm()
+    u = user_of(req)
+    if not u:
+        return RedirectResponse(BASE + "/signin", status_code=303)
+    if not LASTFM_SECRET or not token or not s or s != req.cookies.get("ts_lstate") or not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", token):
+        return RedirectResponse(BASE + "/app?lastfm=failed", status_code=303)
+    try:
+        name = lfm.session_user(token)
+    except (lastfm.LastfmError, KeyError, TypeError):
+        log.exception("lastfm web auth")
+        return RedirectResponse(BASE + "/app?lastfm=failed", status_code=303)
+    link_lastfm(u["id"], name, True)
+    resp = RedirectResponse(BASE + "/app?lastfm=linked", status_code=303)
+    resp.delete_cookie("ts_lstate", path=BASE)
+    return resp
+
+
+@r.post("/api/lastfm/unlink")
+async def api_lastfm_unlink(req: Request):
+    need_lastfm()
+    u = need_user(req)
+    try:
+        keep = bool((await req.json()).get("keep_plays"))
+    except ValueError:
+        keep = False
+    n = 0 if keep else db.x("DELETE FROM plays WHERE user_id=? AND source='lastfm'", (u["id"],)).rowcount
+    db.x("""UPDATE users SET lastfm_user=NULL, lastfm_verified=0, lastfm_cursor=NULL, lastfm_state=NULL, lastfm_error=NULL,
+            lastfm_synced_at=NULL, lastfm_added=NULL WHERE id=?""", (u["id"],))
+    return {"ok": True, "deleted_plays": n}
+
+
+@r.post("/api/lastfm/refresh")
+def api_lastfm_refresh(req: Request):
+    need_lastfm()
+    u = need_user(req)
+    if not u["lastfm_user"]:
+        raise HTTPException(400, "Link your Last.fm profile first.")
+    mode, nxt = refresh_policy(u)
+    if mode == "ad":
+        raise HTTPException(402, "Watch a short ad to update.")
+    if mode == "supporter":
+        raise HTTPException(402, "Live updates are a supporter feature.")
+    if u["lastfm_state"] in ("queued", "syncing"):
+        return lastfm_status(u)
+    if nxt > time.time():
+        raise HTTPException(429, "You just updated. Try again in a few minutes.")
+    queue_sync(u["id"])
+    db.count("lastfm_refresh")
+    return lastfm_status(need_user(req))
+
+
+@r.post("/api/lastfm/refresh/ad/start")
+def api_lastfm_ad_start(req: Request):
+    """Rewarded ad for a refresh (TS_LIVE_GATE=ad). Same flow as the recap unlock: nonce now, finish after the ad."""
+    need_lastfm()
+    u = need_user(req)
+    if not u["lastfm_user"]:
+        raise HTTPException(400, "Link your Last.fm profile first.")
+    mode, nxt = refresh_policy(u)
+    if mode != "ad":
+        raise HTTPException(400, "No ad needed.")
+    if nxt > time.time():
+        raise HTTPException(429, "You've updated recently. Next update: %s." % time.strftime("%H:%M UTC", time.gmtime(nxt)))
+    if limited("livead:%d" % u["id"], 20, 3600):
+        raise HTTPException(429, "Too many tries. Try again later.")
+    nonce = secrets.token_hex(16)
+    db.x("INSERT INTO live_refreshes(nonce_hash, user_id, started_at) VALUES(?,?,?)", (H(nonce), u["id"], time.time()))
+    return {"nonce": nonce, "seconds": LIVE_AD_SECONDS}
+
+
+@r.post("/api/lastfm/refresh/ad/finish")
+async def api_lastfm_ad_finish(req: Request):
+    need_lastfm()
+    u = need_user(req)
+    try:
+        nonce = str((await req.json()).get("nonce", ""))
+    except ValueError:
+        raise HTTPException(400, "bad request")
+    row = db.one("SELECT * FROM live_refreshes WHERE nonce_hash=? AND user_id=?", (H(nonce), u["id"])) if nonce else None
+    if not row:
+        raise HTTPException(400, "Unknown ad view.")
+    if row["done_at"]:
+        return lastfm_status(u)
+    if time.time() - row["started_at"] < LIVE_AD_SECONDS - 1:
+        raise HTTPException(400, "The ad hasn't finished yet.")
+    if last_ad_refresh(u["id"]) + LIVE_AD_HOURS * 3600 > time.time():
+        raise HTTPException(429, "You've updated recently.")
+    db.x("UPDATE live_refreshes SET done_at=? WHERE nonce_hash=?", (time.time(), H(nonce)))
+    db.count("lastfm_refresh_ad")
+    queue_sync(u["id"])
+    return lastfm_status(need_user(req))
+
+
 # ---------------- unsubscribe (works without signing in) ----------------
 @r.get("/unsubscribe")
 def unsub_page(u: str = ""):
@@ -482,6 +722,7 @@ def housekeeping():
     db.x("DELETE FROM rate_events WHERE at<?", (now - 2 * 86400,))
     db.x("DELETE FROM email_log WHERE at<?", (now - 30 * 86400,))
     db.x("DELETE FROM recap_unlocks WHERE started_at<?", (now - SESSION_DAYS * 86400,))
+    db.x("DELETE FROM live_refreshes WHERE started_at<?", (now - 30 * 86400,))
 
 
 def scheduler():
@@ -499,6 +740,8 @@ def _start():
     if os.environ.get("TS_WORKERS", "1") == "1":
         threading.Thread(target=scheduler, daemon=True, name="scheduler").start()
         genres.start()
+        if lfm:
+            live.start()
 
 
 # ---------------- pages ----------------
@@ -506,9 +749,35 @@ PAGES = {"": "index.html", "guide": "guide.html", "signin": "signin.html", "app"
          "privacy": "privacy.html", "terms": "terms.html", "recap": "recap.html", "supporter": "supporter.html"}
 
 
+# Link previews: canonical URL + Open Graph / Twitter card image per page, icons and the web manifest.
+OG_IMAGE_ALT = "TuneSummary: your listening, summarised. Free, open source stats from your Spotify data export."
+CANONICAL = {"index.html": "/", "guide.html": "/guide", "privacy.html": "/privacy", "terms.html": "/terms",
+             "recap.html": "/recap?demo=1", "supporter.html": "/supporter", "signin.html": "/signin", "app.html": "/app?demo=1"}
+
+
+def social(fn):
+    url = PUBLIC_URL + CANONICAL.get(fn, "/")
+    img = PUBLIC_URL + "/static/og.png?v=1"
+    tags = [f'<meta property="og:type" content="website">', f'<meta property="og:site_name" content="TuneSummary">',
+            f'<meta property="og:url" content="{url}">', f'<meta property="og:image" content="{img}">',
+            '<meta property="og:image:type" content="image/png">', '<meta property="og:image:width" content="1200">',
+            '<meta property="og:image:height" content="630">', f'<meta property="og:image:alt" content="{OG_IMAGE_ALT}">',
+            '<meta name="twitter:card" content="summary_large_image">', f'<meta name="twitter:image" content="{img}">',
+            f'<meta name="twitter:image:alt" content="{OG_IMAGE_ALT}">',
+            '<link rel="icon" href="static/icons/favicon.svg?v=1" type="image/svg+xml">',
+            '<link rel="icon" href="static/icons/icon-32.png?v=1" sizes="32x32" type="image/png">',
+            '<link rel="apple-touch-icon" href="static/icons/apple-touch-icon.png?v=1">',
+            '<link rel="manifest" href="static/manifest.webmanifest?v=1">']
+    if fn in CANONICAL:
+        tags.insert(0, f'<link rel="canonical" href="{url}">')
+    else:  # private / one-off pages (verify, unsubscribe, account) stay out of search results
+        tags.insert(0, '<meta name="robots" content="noindex">')
+    return "\n".join(tags)
+
+
 def render(fn, **subs):
     # <base href> keeps relative links right even when a proxy serves a page without the trailing slash.
-    text = (WEB / fn).read_text().replace("{{BASE}}", BASE)
+    text = (WEB / fn).read_text().replace("{{BASE}}", BASE).replace("{{SOCIAL}}", social(fn))
     for k, v in subs.items():
         text = text.replace("{{%s}}" % k, html.escape(v))
     return text

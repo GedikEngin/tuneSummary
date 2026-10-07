@@ -4,7 +4,8 @@ The browser unzips Spotify's export and sends columnar batches (strings de-dupli
   {"tracks": [[track, artist, album, track_id|null], ...], "episodes": [[episode, show], ...],
    "platforms": [...], "countries": [...],
    "rows": [[ts_ms, ms_played, track_idx|-1, episode_idx|-1, platform_idx|-1, country_idx|-1, flags], ...]}
-flags: 1 = skipped, 2 = shuffle, 4 = the row carries skip/shuffle info (extended history).
+flags: 1 = skipped, 2 = shuffle, 4 = the row carries skip/shuffle info (extended history),
+       8 = from Last.fm (server → browser only; length estimated).
 """
 import re
 import time
@@ -15,7 +16,7 @@ MAX_STR = 400
 MIN_TS = 1136073600000    # 2006-01-01, before Spotify existed
 TRACK_ID = re.compile(r"^[A-Za-z0-9]{1,40}$")
 COLS = ("user_id", "ts", "ms", "track", "artist", "album", "track_id", "episode", "show",
-        "skipped", "shuffle", "platform", "country")
+        "skipped", "shuffle", "platform", "country", "source")
 
 
 class BadBatch(ValueError):
@@ -89,12 +90,15 @@ def store(db, rows):
 
 def finish_upload(db, uid):
     """After an upload: if the user now has extended history, drop basic-history rows (minute-precision
-    timestamps, no skip info) inside the period the extended history covers, so plays aren't counted twice."""
+    timestamps, no skip info) inside the period the extended history covers, so plays aren't counted twice.
+    Then drop Last.fm scrobbles inside the export's window (the export is authoritative there)."""
+    from .lastfm import drop_inside_export
     ext = db.one("SELECT MIN(ts) lo, MAX(ts) hi FROM plays WHERE user_id=? AND skipped IS NOT NULL", (uid,))
-    if ext["lo"] is None:
-        return 0
-    return db.x("DELETE FROM plays WHERE user_id=? AND skipped IS NULL AND ts BETWEEN ? AND ?",
-                (uid, ext["lo"] - 60000, ext["hi"] + 60000)).rowcount  # basic times are cut to the minute
+    n = 0
+    if ext["lo"] is not None:
+        n = db.x("DELETE FROM plays WHERE user_id=? AND source IS NULL AND skipped IS NULL AND ts BETWEEN ? AND ?",
+                 (uid, ext["lo"] - 60000, ext["hi"] + 60000)).rowcount  # basic times are cut to the minute
+    return n + drop_inside_export(db, uid)
 
 
 def compact(db, uid):
@@ -115,6 +119,8 @@ def compact(db, uid):
         p = idx(P, Pi, r["platform"]) if r["platform"] else -1
         c = idx(C, Ci, r["country"]) if r["country"] else -1
         fl = 0 if r["skipped"] is None else 4 | (r["skipped"] and 1) | (2 if r["shuffle"] else 0)
+        if r["source"] == "lastfm":
+            fl |= 8
         rows.append([r["ts"], r["ms"], t, e, p, c, fl])
     return {"tracks": T, "episodes": E, "platforms": P, "countries": C, "rows": rows}
 
@@ -128,5 +134,6 @@ def export(db, uid):
              "episode_name": r["episode"], "episode_show_name": r["show"],
              "skipped": None if r["skipped"] is None else bool(r["skipped"]),
              "shuffle": None if r["shuffle"] is None else bool(r["shuffle"]),
-             "platform": r["platform"], "conn_country": r["country"]}
+             "platform": r["platform"], "conn_country": r["country"],
+             **({"tunesummary_source": "lastfm"} if r["source"] == "lastfm" else {})}
             for r in db.q("SELECT * FROM plays WHERE user_id=? ORDER BY ts", (uid,))]
