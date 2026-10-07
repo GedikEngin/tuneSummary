@@ -21,6 +21,7 @@ if (page === 'signin') {
 }
 
 if (page === 'guide') {
+  configReady.then(c => { if (c.lastfm) { $('#lastfm').classList.remove('hidden'); if (location.hash === '#lastfm') $('#lastfm').scrollIntoView(); } });
   configReady.then(c => { if (c.signed_in) $('#remindForm').innerHTML = '<p>You\'re signed in. Set or change your reminder on your <a href="account">account page</a>, or <a href="app">upload your export</a> if it has arrived.</p>'; });
   $('#remindForm').onsubmit = e => { e.preventDefault(); requestLink($('#remEmail').value.trim(), $('#remOn').checked ? +$('#remDays').value : null, $('#remMsg'), $('#remindForm button')); };
 }
@@ -43,6 +44,22 @@ if (page === 'account') {
     $('#accSpec').innerHTML = row('Email', esc(ME.email)) + row('Plan', ME.plan === 'supporter' ? 'Supporter · thank you' : 'Free') +
       row('Member since', fmtD(ME.created)) + row('Plays stored', ME.plays.toLocaleString() + (ME.plays ? ` (${fmtD(ME.first)} → ${fmtD(ME.last)})` : '')) +
       row('Last upload', ME.last_upload ? fmtD(ME.last_upload) : 'not yet · <a class="u" href="app">upload</a>');
+    const lf = ME.lastfm;
+    if (lf) {
+      $('#accLf').classList.remove('hidden');
+      if (lf.linked) {
+        $('#accLfText').innerHTML = `Linked to <a class="u" href="${esc(lf.profile)}" target="_blank" rel="noopener">${esc(lf.user)} ↗</a>${lf.verified ? ' (verified)' : ''}. ${lf.plays.toLocaleString()} plays imported from Last.fm${lf.synced_at ? ', last updated ' + new Date(lf.synced_at).toLocaleString() : ''}. Unlinking deletes those plays (your export data stays).`;
+        $('#accLfBtns').innerHTML = '<button class="btn btn--line" id="accLfUn" type="button">Unlink Last.fm</button>';
+        $('#accLfUn').onclick = async () => {
+          if (!confirm('Unlink Last.fm and delete the plays imported from it?')) return;
+          try { const r = await postJSON('api/lastfm/unlink', {}); $('#accLfMsg').textContent = `Unlinked. Deleted ${r.deleted_plays.toLocaleString()} Last.fm plays.`; load(); }
+          catch (e) { $('#accLfMsg').textContent = e.message; $('#accLfMsg').className = 'err'; }
+        };
+      } else {
+        $('#accLfText').innerHTML = 'Not linked. Link your Last.fm profile on <a class="u" href="app">your stats page</a> to keep your stats current between exports.';
+        $('#accLfBtns').innerHTML = '';
+      }
+    }
     $('#accRem').checked = ME.reminders && !!ME.remind_at;
     $('#accRemMsg').textContent = ME.remind_at ? 'Next reminder: ' + new Date(ME.remind_at).toLocaleString() : (ME.last_upload ? 'You\'ve uploaded, so no reminders are needed.' : 'No reminder scheduled.');
   };

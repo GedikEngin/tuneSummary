@@ -137,7 +137,7 @@ function renderKpis(a, b) {
     k('Top track', esc(topT ? topT.name : '—'), topT ? esc(topT.sub) + ' · ' + fmtInt(topT.plays) + ' streams' : '', '', 'sm'),
     k('Longest streak', A.streak + ' days', A.streakEnd ? 'ended ' + fmtDate(Date.parse(A.streakEnd + 'T12:00:00')) : ''),
     k('Biggest day', A.topDay ? fmtMin(A.topDay[1]) + ' min' : '—', A.topDay ? fmtDate(Date.parse(A.topDay[0] + 'T12:00:00')) : ''),
-    k('Podcasts', fmtMin(A.pms) + ' min', fmtInt(A.pplays) + ' episodes played'),
+    k('Podcasts', fmtMin(A.pms) + ' min', fmtInt(A.pplays) + (A.pplays === 1 ? ' episode played' : ' episodes played')),
   ].join('');
 }
 
@@ -294,13 +294,17 @@ function decode(d) {
     else { const E = d.episodes[ei]; r.ep = E[0]; r.show = E[1]; }
     if (pi >= 0) r.pf = d.platforms[pi]; if (ci >= 0) r.cc = d.countries[ci];
     if (fl & 4) { r.x = 1; r.sk = fl & 1 ? 1 : 0; r.sh = fl & 2 ? 1 : 0; }
+    if (fl & 8) r.lf = 1;
     return r;
   });
 }
 function renderCoverage() {
   if (!ALL.length) { $('#coverage').textContent = ''; return; }
-  const ext = ALL.some(r => r.x);
-  $('#coverage').innerHTML = `<b>${fmtInt(ALL.length)}</b> plays · ${fmtDate(ALL[0].t)} → ${fmtDate(ALL[ALL.length - 1].t)} · ${ext ? 'extended history' : 'basic history (last year only; request extended history for everything)'}`;
+  const ext = ALL.some(r => r.x), lf = ALL.filter(r => r.lf).length, exp = ALL.length - lf;
+  const kind = !exp ? 'Last.fm only (upload your export for your full history)' : ext ? 'extended history' : 'basic history (last year only; request extended history for everything)';
+  $('#coverage').innerHTML = `<b>${fmtInt(ALL.length)}</b> plays · ${fmtDate(ALL[0].t)} → ${fmtDate(ALL[ALL.length - 1].t)} · ${kind}` +
+    (lf && exp ? ` · ${fmtInt(lf)} newer plays from Last.fm` : '');
+  $('#lfFoot').innerHTML = lf ? ' · recent plays <a class="u" href="https://www.last.fm" target="_blank" rel="noopener">powered by AudioScrobbler</a>' : '';
 }
 function showUpload(show) { $('#importCard').classList.toggle('hidden', !show); }
 
@@ -315,6 +319,7 @@ async function load() {
     try { ME = await api('api/me'); } catch (e) { if (e.status === 401) { location.replace('signin'); return; } throw e; }
     $('#who').textContent = ME.email;
     d = await api('api/plays');
+    if (!load.live) { load.live = true; Live.init(ME, () => load()); }
   }
   ALL = decode(d);
   FIRST = null;
@@ -322,6 +327,8 @@ async function load() {
   const c = new Date(wrappedCutoff());
   $('#dWrapped').value = c.getFullYear() + '-' + pad(c.getMonth() + 1) + '-' + pad(c.getDate());
   renderCoverage();
+  // Live box: under the upload card while the account is empty, above the recap card once there's data.
+  if (!DEMO) { if (ALL.length) $('#importCard').before($('#liveBox')); else $('#importCard').after($('#liveBox')); }
   if (!ALL.length) {
     showUpload(true); $('#dashView').classList.add('hidden');
     if (ME) $('#remState').innerHTML = ME.remind_at ? `We'll remind you on ${fmtDate(ME.remind_at)}.` : `Want a reminder email? <a class="u" href="account">Set one up</a>.`;

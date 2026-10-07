@@ -8,12 +8,11 @@
 <meta name="description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
 <meta property="og:title" content="Account — TuneSummary">
 <meta property="og:description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
-<meta property="og:type" content="website">
+{{SOCIAL}}
 <meta name="theme-color" content="#F1EEE6">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%23C2410C'/%3E%3C/svg%3E">
 <script src="static/js/theme.js?v=1"></script>
-<link rel="stylesheet" href="static/css/fonts.css?v=1">
-<link rel="stylesheet" href="static/css/ts.css?v=1">
+<link rel="stylesheet" href="static/css/fonts.css?v=4">
+<link rel="stylesheet" href="static/css/ts.css?v=4">
 </head>
 <body data-page="account">
 <header id="bar"></header>
@@ -27,6 +26,10 @@
     <div class="panel" style="margin-top:var(--s-6)"><h2>Reminder email</h2>
       <label class="check" style="margin-top:var(--s-4)"><input type="checkbox" id="accRem"> <span>Remind me to upload my export in <select id="accDays"><option>3</option><option selected>5</option><option>7</option><option>10</option><option>14</option></select> days (once more a week later if I still haven't).</span></label>
       <p id="accRemMsg" class="small mut" style="margin-top:var(--s-3)"></p></div>
+    <div class="panel hidden" id="accLf"><h2>Last.fm</h2>
+      <p class="small" id="accLfText" style="color:var(--ink-2);margin:var(--s-3) 0 var(--s-4);max-width:60ch"></p>
+      <div class="row" id="accLfBtns"></div>
+      <p id="accLfMsg" class="small" style="margin-top:var(--s-3)"></p></div>
     <div class="panel"><h2>Your data</h2>
       <p class="small" style="color:var(--ink-2);margin:var(--s-3) 0 var(--s-4);max-width:60ch">Download everything we store about you as JSON (plays in Spotify's own format), delete your plays but keep the account, or delete the account and everything in it. Deletion is immediate and can't be undone.</p>
       <div class="row"><a class="btn btn--line" href="api/export">Download my data <span class="arr">↓</span></a>
@@ -38,7 +41,7 @@
 </div></section>
 </main>
 <footer id="foot"></footer>
-<script src="static/js/common.js?v=1"></script>
-<script src="static/js/pages.js?v=1"></script>
+<script src="static/js/common.js?v=3"></script>
+<script src="static/js/pages.js?v=2"></script>
 </body>
 </html>

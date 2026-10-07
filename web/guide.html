@@ -5,15 +5,14 @@
 <base href="{{BASE}}/">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Get your Spotify data — TuneSummary</title>
-<meta name="description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta name="description" content="How to download your full Spotify listening history (Extended streaming history), keep it current with Last.fm, and turn it into free stats with TuneSummary.">
 <meta property="og:title" content="Get your Spotify data — TuneSummary">
-<meta property="og:description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
-<meta property="og:type" content="website">
+<meta property="og:description" content="How to download your full Spotify listening history (Extended streaming history), keep it current with Last.fm, and turn it into free stats with TuneSummary.">
+{{SOCIAL}}
 <meta name="theme-color" content="#F1EEE6">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%23C2410C'/%3E%3C/svg%3E">
 <script src="static/js/theme.js?v=1"></script>
-<link rel="stylesheet" href="static/css/fonts.css?v=1">
-<link rel="stylesheet" href="static/css/ts.css?v=1">
+<link rel="stylesheet" href="static/css/fonts.css?v=4">
+<link rel="stylesheet" href="static/css/ts.css?v=4">
 </head>
 <body data-page="guide">
 <header id="bar"></header>
@@ -48,9 +47,22 @@
     </form>
   </div>
 </div></section>
+<section class="sec hidden" id="lastfm"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ 03</span><h2 class="sec-title">Keep it <em>current</em></h2><p class="sec-note meta">Optional · free Last.fm account · about 3 minutes</p></div>
+  <div class="sec-body">
+    <p class="prose">An export is a snapshot. To see new plays without waiting for another export, let Spotify send each play to <a class="u" href="https://www.last.fm" target="_blank" rel="noopener">Last.fm ↗</a> (this is called scrobbling) and link that Last.fm profile here. It also works before your export arrives: link Last.fm and you see stats right away, starting from when you connected Spotify to it.</p>
+    <ol class="steps" style="margin-top:var(--s-5)">
+      <li><div><h3>Make a Last.fm account</h3><p>Sign up for free at <a class="u" href="https://www.last.fm/join" target="_blank" rel="noopener">last.fm/join ↗</a>, or sign in if you have one.</p></div></li>
+      <li><div><h3>Connect Spotify to Last.fm</h3><p>On Last.fm open <a class="u" href="https://www.last.fm/settings/applications" target="_blank" rel="noopener">Settings → Applications ↗</a>. Next to <b>Spotify scrobbling</b>, press <b>Connect</b> and log in to Spotify to allow it. From now on every song you play on Spotify (any device) is added to your Last.fm profile.</p><p class="mut small">Last.fm only records plays from the moment you connect; it can't see older Spotify history. That's what the export is for.</p></div></li>
+      <li><div><h3>Keep your listening public</h3><p>In <a class="u" href="https://www.last.fm/settings/privacy" target="_blank" rel="noopener">Settings → Privacy ↗</a>, leave <b>Hide recent listening information</b> unticked. TuneSummary reads your plays through Last.fm's public API and can't see a hidden history.</p></div></li>
+      <li><div><h3>Link it here</h3><p>On <a class="u" href="app">your stats page</a>, use the <b>Live updates · Last.fm</b> box to link your profile. We import your recent plays straight away, then keep them up to date. Press <b>↻ Update my latest stats</b> any time for the newest plays.</p></div></li>
+    </ol>
+    <p class="small mut" style="margin-top:var(--s-4);max-width:66ch">Last.fm doesn't record how long you listened, so lengths are estimated from your own export (or the track's length). When you upload a newer export, it replaces the Last.fm plays for the period it covers, so nothing is counted twice. Recent plays powered by AudioScrobbler · <a class="u" href="https://www.last.fm" target="_blank" rel="noopener">Last.fm</a>.</p>
+  </div>
+</div></section>
 </main>
 <footer id="foot"></footer>
-<script src="static/js/common.js?v=1"></script>
-<script src="static/js/pages.js?v=1"></script>
+<script src="static/js/common.js?v=3"></script>
+<script src="static/js/pages.js?v=2"></script>
 </body>
 </html>

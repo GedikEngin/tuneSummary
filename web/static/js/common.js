@@ -36,7 +36,7 @@ function chrome() {
       try { localStorage.setItem('eg-survey-theme', next); } catch (e) {}
       label(); document.dispatchEvent(new Event('themechange'));
     };
-    configReady.then(c => { if (c.signed_in) $('#navAuth').innerHTML = link('app', 'My stats', 'app') + ' &nbsp; ' + link('account', 'Account', 'account'); });
+    configReady.then(c => { if (c.signed_in) $('#navAuth').innerHTML = link('app', 'My stats', 'app') + link('account', 'Account', 'account'); });
   }
   const foot = $('#foot');
   if (foot) {
@@ -66,6 +66,19 @@ async function fillAdSlot() {
   slot.appendChild(ins);
   (window.adsbygoogle = window.adsbygoogle || []).push({});
 }
+
+// Rewarded-ad hook used by the recap unlock and the Last.fm "update" button. Placeholder until Google Ad Manager
+// rewarded ads are wired in: show something in `box` for `seconds`, then resolve true if the reward was earned.
+window.TSRewarded = window.TSRewarded || {
+  show(box, seconds) {
+    return new Promise(res => {
+      let left = seconds;
+      const paint = () => { box.innerHTML = `<div><div class="meta">Advertisement</div><p class="display" style="font-size:1.6rem;margin:8px 0">Ad placeholder</p><p class="small mut">Rewarded ads aren't live yet. Continuing in <b>${left}</b> s…</p></div>`; };
+      paint();
+      const t = setInterval(() => { left--; if (left <= 0) { clearInterval(t); res(true); } else paint(); }, 1000);
+    });
+  },
+};
 
 chrome();
 fillAdSlot();
