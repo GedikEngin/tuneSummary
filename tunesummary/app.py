@@ -20,7 +20,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import emails, ingest, lastfm
+from . import emails, ingest, lastfm, lastfm_care
 from .db import DB
 from .genres import GenreWorker
 from .mailer import CapReached, Mailer
@@ -59,6 +59,9 @@ db = DB(str(DATA_DIR / "tunesummary.db"))
 mailer = Mailer(db, DATA_DIR)
 genres = GenreWorker(db)
 lfm = lastfm.Client(LASTFM_KEY, LASTFM_SECRET) if LASTFM_KEY else None
+# Users linked before the connection-health emails existed get their "expires soon" date from when they linked.
+db.x("UPDATE users SET lastfm_headsup_due=lastfm_linked_at+? WHERE lastfm_user IS NOT NULL AND lastfm_headsup_due IS NULL",
+     (lastfm_care.HEADSUP_FIRST_DAYS * lastfm_care.DAY,))
 
 app = FastAPI(title="TuneSummary", docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(GZipMiddleware, minimum_size=1500)
@@ -349,7 +352,7 @@ def api_plays(req: Request):
 def api_export(req: Request):
     u = need_user(req)
     out = {"account": {"email": u["email"], "plan": u["plan"], "created": u["created_at"],
-                       "reminders": bool(u["reminders"])},
+                       "reminders": bool(u["reminders"]), "lastfm_reminders": bool(u["lastfm_reminders"])},
            "uploads": [dict(x) for x in db.q("SELECT at, rows, added FROM uploads WHERE user_id=?", (u["id"],))],
            "plays": ingest.export(db, u["id"])}
     return Response(json.dumps(out, ensure_ascii=False), media_type="application/json",
@@ -472,6 +475,7 @@ def live_due(now):
 def live_synced(uid, added):
     if added:
         genres.wake.set()
+    lastfm_care.update_health(db)  # new scrobbles clear the stale banner right away
 
 
 live = lastfm.SyncWorker(db, lfm, live_due, live_synced)
@@ -514,7 +518,8 @@ def lastfm_status(u):
             "state": u["lastfm_state"] or "ok", "error": u["lastfm_error"], "plays": n,
             "synced_at": u["lastfm_synced_at"] and u["lastfm_synced_at"] * 1000, "added": u["lastfm_added"],
             "gate": live_gate(), "mode": mode, "next_at": nxt * 1000 if nxt > time.time() else None,
-            "auto_hours": auto, "ad_seconds": LIVE_AD_SECONDS}
+            "auto_hours": auto, "ad_seconds": LIVE_AD_SECONDS,
+            "stale": lastfm_care.status(u), "reminders": bool(u["lastfm_reminders"])}
 
 
 def need_lastfm():
@@ -524,6 +529,7 @@ def need_lastfm():
 
 def link_lastfm(uid, name, verified):
     old = db.one("SELECT lastfm_user FROM users WHERE id=?", (uid,))["lastfm_user"]
+    lastfm_care.on_link(db, uid, time.time(), bool(old and old.lower() == name.lower()))
     if old and old.lower() != name.lower():  # another profile: its scrobbles go
         db.x("DELETE FROM plays WHERE user_id=? AND source='lastfm'", (uid,))
         db.x("UPDATE users SET lastfm_cursor=NULL WHERE id=?", (uid,))
@@ -607,8 +613,31 @@ async def api_lastfm_unlink(req: Request):
         keep = False
     n = 0 if keep else db.x("DELETE FROM plays WHERE user_id=? AND source='lastfm'", (u["id"],)).rowcount
     db.x("""UPDATE users SET lastfm_user=NULL, lastfm_verified=0, lastfm_cursor=NULL, lastfm_state=NULL, lastfm_error=NULL,
-            lastfm_synced_at=NULL, lastfm_added=NULL WHERE id=?""", (u["id"],))
+            lastfm_synced_at=NULL, lastfm_added=NULL, lastfm_newest=NULL, lastfm_stale_at=NULL, lastfm_stale_why=NULL,
+            lastfm_stale_dismissed=NULL, lastfm_stale_mails=0, lastfm_stale_mailed_at=NULL, lastfm_headsup_due=NULL,
+            lastfm_reconnected_at=NULL WHERE id=?""", (u["id"],))
     return {"ok": True, "deleted_plays": n}
+
+
+@r.post("/api/lastfm/stale/dismiss")
+def api_lastfm_stale_dismiss(req: Request):
+    """Hide the "Last.fm stopped receiving your plays" banner until the next time it goes stale."""
+    need_lastfm()
+    u = need_user(req)
+    db.x("UPDATE users SET lastfm_stale_dismissed=lastfm_stale_at WHERE id=?", (u["id"],))
+    return lastfm_status(need_user(req))
+
+
+@r.post("/api/lastfm/reminders")
+async def api_lastfm_reminders(req: Request):
+    """Opt in/out of the Last.fm connection emails (stopped scrobbling, expires soon)."""
+    u = need_user(req)
+    try:
+        on = bool((await req.json()).get("on"))
+    except ValueError:
+        raise HTTPException(400, "bad request")
+    db.x("UPDATE users SET lastfm_reminders=? WHERE id=?", (int(on), u["id"]))
+    return {"ok": True, "reminders": on}
 
 
 @r.post("/api/lastfm/refresh")
@@ -675,19 +704,23 @@ async def api_lastfm_ad_finish(req: Request):
 
 # ---------------- unsubscribe (works without signing in) ----------------
 @r.get("/unsubscribe")
-def unsub_page(u: str = ""):
-    page = render("unsubscribe.html", U=u if re.fullmatch(r"[0-9a-f]{32}", u) else "")
+def unsub_page(u: str = "", k: str = ""):
+    page = render("unsubscribe.html", U=u if re.fullmatch(r"[0-9a-f]{32}", u) else "", K="lastfm" if k == "lastfm" else "")
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
 @r.post("/unsubscribe")
-async def unsub(req: Request, u: str = ""):
+async def unsub(req: Request, u: str = "", k: str = ""):
     if not u:
         form = await req.form()
-        u = str(form.get("u", ""))
-    n = db.x("UPDATE users SET reminders=0, remind_at=NULL WHERE unsub_token=?", (u,)).rowcount if u else 0
+        u, k = str(form.get("u", "")), str(form.get("k", ""))
+    # k=lastfm (links in Last.fm emails) stops only those; the export-reminder link stops only export reminders.
+    sql = ("UPDATE users SET lastfm_reminders=0 WHERE unsub_token=?" if k == "lastfm"
+           else "UPDATE users SET reminders=0, remind_at=NULL WHERE unsub_token=?")
+    n = db.x(sql, (u,)).rowcount if u else 0
     if req.headers.get("accept", "").startswith("text/html") or "form" in req.headers.get("content-type", ""):
-        return RedirectResponse(BASE + "/unsubscribe?done=1" + ("" if n else "&missing=1"), status_code=303)
+        return RedirectResponse(BASE + "/unsubscribe?done=1" + ("" if n else "&missing=1") + ("&k=lastfm" if k == "lastfm" else ""),
+                                status_code=303)
     return {"ok": True}
 
 
@@ -729,6 +762,8 @@ def scheduler():
     while True:
         try:
             send_due_reminders()
+            if lfm:
+                lastfm_care.run(db, mailer, PUBLIC_URL)
             housekeeping()
         except Exception:
             log.exception("scheduler")

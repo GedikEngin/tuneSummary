@@ -36,6 +36,13 @@ connect it under Last.fm → Settings → Applications). `tunesummary/lastfm.py`
   clear message.
 - Linking: Last.fm web auth (`/auth/lastfm` → `auth.getSession`, only the verified username is kept) when
   `TS_LASTFM_SHARED_SECRET` is set, otherwise a public username (checked with `user.getInfo`).
+- **Connection health** (`tunesummary/lastfm_care.py`): Spotify's link to Last.fm expires after ~180 days and scrobbles
+  then stop silently. A linked user is *stale* when the newest scrobble on Last.fm is > 7 days old, or nothing at all
+  arrived 3 days after linking. Stale users get a dismissible dashboard banner with the fix (Last.fm → Settings →
+  Applications → Spotify Scrobbling → Connect/Reconnect) that clears once a newer scrobble shows up (that also counts
+  as a reconnect). Emails (opt-out: "Last.fm reminders" on the account page, or the `&k=lastfm` unsubscribe link):
+  one when a user turns stale, one more 14 days later if still stale, and an "expires soon" heads-up 170 days after
+  linking, then every 175 days after a detected reconnect or the previous heads-up.
 
 Who can refresh is set by `TS_LIVE_GATE` (same idea as the recap gate; the first sync after linking is always free):
 
@@ -85,6 +92,7 @@ tunesummary/app.py      routes, auth, sessions, reminders scheduler
 tunesummary/ingest.py   upload validation, storage, export
 tunesummary/genres.py   MusicBrainz genre worker
 tunesummary/lastfm.py   Last.fm client, scrobble import + dedupe, sync worker
+tunesummary/lastfm_care.py  connection health: stale detection, reconnect + "expires soon" emails
 tunesummary/mailer.py   email sending (SMTP or log backend; swap for an API provider here)
 tunesummary/emails.py   email texts
 web/                    pages + static/{css,js,fonts}

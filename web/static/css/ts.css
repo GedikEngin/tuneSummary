@@ -185,6 +185,7 @@ tr.click:hover .barfg { background: var(--signal); }
 .live .row { gap: var(--s-3); }
 .live input[type=text] { min-width: min(240px, 100%); }
 .callout .lf-credit { margin: var(--s-3) 0 0; color: var(--ink-3); }
+.callout.stale { border-left: 3px solid var(--signal); }
 .lf-credit a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--rule); }
 .lf-credit a:hover { color: var(--ink); }
 .lf-spin { display: inline-block; width: .8em; height: .8em; border: 2px solid var(--rule-strong); border-top-color: var(--signal); border-radius: 50%; animation: lfspin 1s linear infinite; vertical-align: -1px; margin-right: 4px; }

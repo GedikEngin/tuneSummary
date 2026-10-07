@@ -11,8 +11,8 @@
 {{SOCIAL}}
 <meta name="theme-color" content="#F1EEE6">
 <script src="static/js/theme.js?v=1"></script>
-<link rel="stylesheet" href="static/css/fonts.css?v=4">
-<link rel="stylesheet" href="static/css/ts.css?v=4">
+<link rel="stylesheet" href="static/css/fonts.css?v=5">
+<link rel="stylesheet" href="static/css/ts.css?v=5">
 </head>
 <body data-page="unsub">
 <header id="bar"></header>
@@ -23,16 +23,17 @@
   <div class="sec-body prose">
     <form method="post" action="unsubscribe" id="unsubForm">
       <input type="hidden" name="u" value="{{U}}">
-      <p>Press the button and we won't send you any more reminder emails. Your account and data stay as they are.</p>
+      <input type="hidden" name="k" value="{{K}}">
+      <p id="unsubWhat">Press the button and we won't send you any more reminder emails. Your account and data stay as they are.</p>
       <p style="margin-top:var(--s-5)"><button class="btn btn--ink" type="submit">Stop reminders <span class="arr">→</span></button></p>
     </form>
-    <p id="unsubDone" class="hidden"><b>Done.</b> No more reminders. You can turn them back on from your <a href="account">account page</a>.</p>
+    <p id="unsubDone" class="hidden"><b>Done.</b> <span id="unsubDoneWhat">No more reminders.</span> You can turn them back on from your <a href="account">account page</a>.</p>
     <p id="unsubMissing" class="hidden">That link didn't match an account; it may have been deleted. Nothing will be sent.</p>
   </div>
 </div></section>
 </main>
 <footer id="foot"></footer>
 <script src="static/js/common.js?v=3"></script>
-<script src="static/js/pages.js?v=2"></script>
+<script src="static/js/pages.js?v=3"></script>
 </body>
 </html>

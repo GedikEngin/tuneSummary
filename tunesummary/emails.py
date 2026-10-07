@@ -54,3 +54,56 @@ def reminder(upload_url, guide_url, unsub_url, second=False):
                  " · TuneSummary is not affiliated with Spotify.")
     subj = "Still waiting on your Spotify data?" if second else "Your Spotify data should be ready: here's how to upload it"
     return subj, text, html
+
+
+LASTFM_STEPS_TXT = ("1. Open Last.fm → Settings → Applications: {settings}\n"
+                    "2. Find \"Spotify Scrobbling\" and press Connect (or Reconnect).\n"
+                    "3. Sign in to Spotify if it asks. New plays then reach Last.fm and TuneSummary again.\n")
+LASTFM_STEPS_HTML = """<ol style="padding-left:20px;line-height:1.7">
+<li>Open Last.fm &rarr; <b>Settings &rarr; Applications</b>.</li>
+<li>Find <b>Spotify Scrobbling</b> and press <b>Connect</b> (or <b>Reconnect</b>).</li>
+<li>Sign in to Spotify if it asks. New plays then reach Last.fm and TuneSummary again.</li></ol>"""
+
+
+def _lastfm_foot(unsub_url):
+    return (f'You get this because you linked Last.fm to TuneSummary. <a href="{escape(unsub_url)}" style="color:#7A776D">Stop Last.fm emails</a>.'
+            " · TuneSummary is not affiliated with Spotify or Last.fm.")
+
+
+def lastfm_stale(settings_url, app_url, unsub_url, user, days, never=False, second=False):
+    """Scrobbles stopped (or never started): the Spotify connection on Last.fm needs a (re)connect."""
+    if never:
+        lead = (f"You linked the Last.fm profile {user} to TuneSummary {days} days ago, but no plays have reached it yet. "
+                "Spotify only sends plays to Last.fm once you connect them.")
+        subj = "Connect Spotify to Last.fm to keep your stats live"
+    else:
+        lead = (f"Your Last.fm profile {user} hasn't received a play from Spotify in {days} days. Spotify's connection to Last.fm "
+                "expires after about 180 days, and then plays silently stop arriving. If you've been listening, it has probably expired.")
+        subj = ("Still no new plays: reconnect Spotify on Last.fm" if second
+                else "Last.fm stopped receiving your Spotify plays")
+    text = (f"{lead}\n\nTo fix it:\n{LASTFM_STEPS_TXT.format(settings=settings_url)}\nYour stats: {app_url}\n\n"
+            f"Stop Last.fm emails: {unsub_url}" + FOOT_TXT)
+    html = _html(f"""<h1 style="font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:34px;margin:16px 0 8px">{'Connect' if never else 'Reconnect'} <em>Spotify</em> on Last.fm</h1>
+<p>{escape(lead)}</p>
+{LASTFM_STEPS_HTML}
+{_button(settings_url, "Open Last.fm settings")}
+<p style="font-size:13px;color:#4A4943">Not listening lately? Then all is fine; ignore this. <a href="{escape(app_url)}" style="color:#151513">Your stats</a>.</p>""",
+                 _lastfm_foot(unsub_url))
+    return subj, text, html
+
+
+def lastfm_headsup(settings_url, app_url, unsub_url, user):
+    """~10 days before Spotify's ~180-day Last.fm connection is expected to expire."""
+    lead = (f"Spotify's connection to Last.fm lasts about 180 days, and the one feeding {user} is due to expire soon. "
+            "When it does, plays stop reaching Last.fm (and your TuneSummary stats) without any warning.")
+    text = (f"{lead}\n\nReconnecting takes a minute and restarts the clock:\n{LASTFM_STEPS_TXT.format(settings=settings_url)}\n"
+            f"Last.fm shows how many days are left under Spotify Scrobbling (\"Your connection expires in …\").\n\n"
+            f"Your stats: {app_url}\nStop Last.fm emails: {unsub_url}" + FOOT_TXT)
+    html = _html(f"""<h1 style="font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:34px;margin:16px 0 8px">Your Last.fm link <em>expires soon</em></h1>
+<p>{escape(lead)}</p>
+<p>Reconnecting takes a minute and restarts the clock:</p>
+{LASTFM_STEPS_HTML}
+{_button(settings_url, "Open Last.fm settings")}
+<p style="font-size:13px;color:#4A4943">Last.fm shows the days left under Spotify Scrobbling ("Your connection expires in &hellip;").</p>""",
+                 _lastfm_foot(unsub_url))
+    return "Your Spotify → Last.fm connection expires soon", text, html

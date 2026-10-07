@@ -103,6 +103,11 @@ class Client:
         return self.call("user.getRecentTracks", user=user, limit=200, page=page, extended=0,
                          **{"from": frm, "to": to})
 
+    def latest(self, user):
+        """Unix time of the user's newest scrobble (any age), or None if they have none."""
+        items, _ = parse_recent(self.call("user.getRecentTracks", user=user, limit=1, page=1, extended=0))
+        return max((s["uts"] for s in items), default=None)
+
     def duration_ms(self, artist, track):
         try:
             d = self.call("track.getInfo", artist=artist, track=track, autocorrect=1)
@@ -249,6 +254,12 @@ def sync_user(db, client, uid, now=None, max_pages=MAX_PAGES):
         got = list(first)
         for page in range(2, pages + 1):
             got.extend(parse_recent(client.recent(u["lastfm_user"], page=page, frm=start))[0])
+    # Newest scrobble on Last.fm at all (even ones the export already covers): the connection-health signal.
+    newest = max((s["uts"] for s in first + got), default=None)
+    if newest is None and not db.one("SELECT lastfm_newest FROM users WHERE id=?", (uid,))["lastfm_newest"]:
+        newest = client.latest(u["lastfm_user"])  # nothing new since `start`; is there anything older?
+    if newest:
+        db.x("UPDATE users SET lastfm_newest=MAX(COALESCE(lastfm_newest, 0), ?) WHERE id=?", (newest, uid))
     got = [s for s in got if s["uts"] >= start and (hi is None or s["uts"] * 1000 > hi)]
     added = 0
     if got:

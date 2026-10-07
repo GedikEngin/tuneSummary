@@ -49,7 +49,7 @@ const Live = (() => {
         (ST.mode === 'ad' && !wait ? '<span class="meta">short ad · keeps it free</span>' : '') +
         (wait && !busy() ? `<span class="meta">next at ${at(ST.next_at)}</span>` : '');
     }
-    b.innerHTML = `<div class="callout live"><div class="row" style="align-items:center">
+    b.innerHTML = staleBanner() + `<div class="callout live"><div class="row" style="align-items:center">
         <div style="flex:1;min-width:220px"><div class="meta">Live updates · Last.fm · <a class="u" href="${esc(ST.profile)}" target="_blank" rel="noopener">${esc(ST.user)}</a></div>
         <p class="small" id="lfLine">${line}</p>
         <p class="small mut">${ST.plays.toLocaleString()} plays from Last.fm${auto}. Lengths are estimated; your next export replaces them.</p></div>
@@ -58,6 +58,25 @@ const Live = (() => {
         <p class="meta lf-credit">${credit()}</p></div>`;
     const go = $('#lfGo');
     if (go) go.onclick = ST.mode === 'ad' ? viaAd : refresh;
+    const x = $('#lfStaleX');
+    if (x) x.onclick = async () => {
+      try { ST = await postJSON('api/lastfm/stale/dismiss'); } catch (e) { ST.stale.dismissed = true; }
+      render();
+    };
+  }
+
+  // Spotify's connection to Last.fm expires after ~180 days and scrobbles then stop without a word; the server flags it.
+  function staleBanner() {
+    const s = ST.stale;
+    if (!s || s.dismissed) return '';
+    const what = s.why === 'never'
+      ? `No plays have reached your Last.fm profile since you linked it ${s.days} day${s.days === 1 ? '' : 's'} ago. Spotify only sends plays once it's connected to Last.fm.`
+      : `Last.fm stopped receiving your Spotify plays: the newest one is ${s.days} days old. Spotify's connection to Last.fm expires after about 180 days.`;
+    return `<div class="callout stale" role="alert" style="margin-bottom:var(--s-4)"><div class="row" style="align-items:flex-start">
+        <div style="flex:1;min-width:220px"><div class="meta">Live updates paused · Last.fm</div>
+        <p class="small">${what} Open Last.fm → <b>Settings → Applications</b> → <b>Spotify Scrobbling</b> → <b>${s.why === 'never' ? 'Connect' : 'Connect / Reconnect'}</b>. This note goes away once new plays arrive.</p>
+        <p style="margin-top:var(--s-3)"><a class="btn btn--ink btn--sm" href="${esc(s.settings)}" target="_blank" rel="noopener">Open Last.fm settings ↗</a></p></div>
+        <button class="btn btn--line btn--sm" id="lfStaleX" type="button" aria-label="Dismiss">✕</button></div></div>`;
   }
 
   async function refresh() {

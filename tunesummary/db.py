@@ -95,7 +95,15 @@ class DB:
            "users": [("lastfm_user", "TEXT"), ("lastfm_verified", "INTEGER NOT NULL DEFAULT 0"),
                      ("lastfm_linked_at", "REAL"), ("lastfm_cursor", "INTEGER"),  # newest imported scrobble (unix s)
                      ("lastfm_state", "TEXT"), ("lastfm_error", "TEXT"),          # queued | syncing | ok | error
-                     ("lastfm_synced_at", "REAL"), ("lastfm_tried_at", "REAL"), ("lastfm_added", "INTEGER")]}
+                     ("lastfm_synced_at", "REAL"), ("lastfm_tried_at", "REAL"), ("lastfm_added", "INTEGER"),
+                     # Connection health (see lastfm_care.py): Spotify's link to Last.fm expires after ~180 days.
+                     ("lastfm_newest", "INTEGER"),                                 # newest scrobble seen on Last.fm (unix s)
+                     ("lastfm_stale_at", "REAL"), ("lastfm_stale_why", "TEXT"),   # NULL = healthy; why: quiet | never
+                     ("lastfm_stale_dismissed", "REAL"),                          # = stale_at when the banner was closed
+                     ("lastfm_stale_mails", "INTEGER NOT NULL DEFAULT 0"), ("lastfm_stale_mailed_at", "REAL"),
+                     ("lastfm_headsup_due", "REAL"), ("lastfm_headsup_sent_at", "REAL"),  # "expires soon" email
+                     ("lastfm_reconnected_at", "REAL"),
+                     ("lastfm_reminders", "INTEGER NOT NULL DEFAULT 1")]}         # Last.fm emails opt-out
 
     def migrate(self):
         for table, cols in self.ADD.items():

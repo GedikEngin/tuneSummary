@@ -31,6 +31,10 @@ if (page === 'verify') {
 }
 
 if (page === 'unsub') {
+  if (qs.get('k') === 'lastfm' || document.querySelector('#unsubForm input[name=k]').value === 'lastfm') {
+    $('#unsubWhat').textContent = "Press the button and we won't send you any more Last.fm emails (stopped scrobbling, connection expiring). Your account and data stay as they are.";
+    $('#unsubDoneWhat').textContent = 'No more Last.fm emails.';
+  }
   if (qs.get('done')) { $('#unsubForm').classList.add('hidden'); $(qs.get('missing') ? '#unsubMissing' : '#unsubDone').classList.remove('hidden'); }
   else if (!document.querySelector('#unsubForm input[name=u]').value) { $('#unsubForm').classList.add('hidden'); $('#unsubMissing').classList.remove('hidden'); }
 }
@@ -50,12 +54,19 @@ if (page === 'account') {
       if (lf.linked) {
         $('#accLfText').innerHTML = `Linked to <a class="u" href="${esc(lf.profile)}" target="_blank" rel="noopener">${esc(lf.user)} ↗</a>${lf.verified ? ' (verified)' : ''}. ${lf.plays.toLocaleString()} plays imported from Last.fm${lf.synced_at ? ', last updated ' + new Date(lf.synced_at).toLocaleString() : ''}. Unlinking deletes those plays (your export data stays).`;
         $('#accLfBtns').innerHTML = '<button class="btn btn--line" id="accLfUn" type="button">Unlink Last.fm</button>';
+        $('#accLfRemWrap').classList.remove('hidden');
+        $('#accLfRem').checked = !!lf.reminders;
+        $('#accLfRem').onchange = async () => {
+          try { await postJSON('api/lastfm/reminders', {on: $('#accLfRem').checked}); $('#accLfMsg').className = 'small'; $('#accLfMsg').textContent = $('#accLfRem').checked ? 'Last.fm reminders on.' : 'Last.fm reminders off.'; }
+          catch (e) { $('#accLfMsg').textContent = e.message; $('#accLfMsg').className = 'err'; }
+        };
         $('#accLfUn').onclick = async () => {
           if (!confirm('Unlink Last.fm and delete the plays imported from it?')) return;
           try { const r = await postJSON('api/lastfm/unlink', {}); $('#accLfMsg').textContent = `Unlinked. Deleted ${r.deleted_plays.toLocaleString()} Last.fm plays.`; load(); }
           catch (e) { $('#accLfMsg').textContent = e.message; $('#accLfMsg').className = 'err'; }
         };
       } else {
+        $('#accLfRemWrap').classList.add('hidden');
         $('#accLfText').innerHTML = 'Not linked. Link your Last.fm profile on <a class="u" href="app">your stats page</a> to keep your stats current between exports.';
         $('#accLfBtns').innerHTML = '';
       }
