@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{BASE}}/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — TuneSummary</title>
+<meta name="description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:title" content="Sign in — TuneSummary">
+<meta property="og:description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#F1EEE6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%23C2410C'/%3E%3C/svg%3E">
+<script src="static/js/theme.js?v=1"></script>
+<link rel="stylesheet" href="static/css/fonts.css?v=1">
+<link rel="stylesheet" href="static/css/ts.css?v=1">
+</head>
+<body data-page="signin">
+<header id="bar"></header>
+<main>
+
+<section class="sec"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ —</span><h2 class="sec-title">Sign <em>in</em></h2><p class="sec-note meta">No passwords. We email you a link.</p></div>
+  <div class="sec-body">
+    <p id="signErr" class="err hidden" style="margin-bottom:var(--s-4)"></p>
+    <form id="signForm" class="prose">
+      <p>Enter your email. New here? The same link creates your account.</p>
+      <div class="row" style="margin-top:var(--s-5)"><input type="email" id="signEmail" placeholder="you@example.com" required autocomplete="email">
+        <button class="btn btn--ink" type="submit">Email me a link <span class="arr">→</span></button></div>
+      <p id="signMsg" class="small" style="margin-top:var(--s-4)"></p>
+    </form>
+    <div id="googleBox" class="hidden" style="margin-top:var(--s-6);border-top:1px solid var(--rule);padding-top:var(--s-5)">
+      <a class="btn btn--line" href="auth/google">Continue with Google <span class="arr">→</span></a>
+    </div>
+    <p class="small mut" style="margin-top:var(--s-6)">By signing in you agree to the <a class="u" href="terms">terms</a> and <a class="u" href="privacy">privacy policy</a>.</p>
+  </div>
+</div></section>
+</main>
+<footer id="foot"></footer>
+<script src="static/js/common.js?v=1"></script>
+<script src="static/js/pages.js?v=1"></script>
+</body>
+</html>

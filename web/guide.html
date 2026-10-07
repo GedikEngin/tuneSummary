@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{BASE}}/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get your Spotify data — TuneSummary</title>
+<meta name="description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:title" content="Get your Spotify data — TuneSummary">
+<meta property="og:description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#F1EEE6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%23C2410C'/%3E%3C/svg%3E">
+<script src="static/js/theme.js?v=1"></script>
+<link rel="stylesheet" href="static/css/fonts.css?v=1">
+<link rel="stylesheet" href="static/css/ts.css?v=1">
+</head>
+<body data-page="guide">
+<header id="bar"></header>
+<main>
+
+<section class="hero" style="padding-bottom:var(--s-5)"><div class="wrap">
+  <div class="meta" style="margin-bottom:var(--s-4)"><span class="signal">■</span> Guide · about 2 minutes, then a few days of waiting</div>
+  <h1 style="font-size:clamp(3rem,8vw,6.5rem)">Get your <em>data</em></h1>
+  <p class="lede">Spotify keeps your full listening history and gives it to you on request. Here's exactly how to ask for it.</p>
+</div></section>
+<section class="sec" style="padding-top:var(--s-5)"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ 01</span><h2 class="sec-title">Request the <em>export</em></h2><p class="sec-note meta">Works in any browser, phone or computer. Not in the Spotify app.</p></div>
+  <div class="sec-body">
+    <ol class="steps">
+      <li><div><h3>Open your Spotify privacy settings</h3><p>Go to <a class="u" href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener">spotify.com/account/privacy ↗</a> and log in. (From the account page it's under <b>Security and privacy → Account privacy</b>.)</p></div></li>
+      <li><div><h3>Tick "Extended streaming history"</h3><p>Scroll to <b>Download your data</b>. Tick the box for <b>Extended streaming history</b>. That's the one with every play since you made your account, including skips, shuffle and devices.</p><p class="mut small">You can untick "Account data" and "Technical log information"; TuneSummary doesn't need them. If you only want a quick look, "Account data" alone arrives sooner but covers just the last year with less detail.</p></div></li>
+      <li><div><h3>Press "Request data"</h3><p>Spotify sends you an email titled something like <b>"Confirm your data request"</b>. Open it and press <b>Confirm</b>. Nothing happens until you do.</p></div></li>
+      <li><div><h3>Wait</h3><p>Spotify says it can take <b>up to 30 days</b>; it usually takes a few. When it's ready you get an email, <b>"Your Spotify data is ready to download"</b>. The download link in it works for 14 days.</p></div></li>
+      <li><div><h3>Download and upload</h3><p>Download <code>my_spotify_data.zip</code>. Don't unzip it. <a class="u" href="app">Upload it to TuneSummary →</a></p><p class="mut small">Your browser opens the zip and sends only the play history files' contents (track, artist, album, time, length, skip/shuffle, device type, country). Everything else stays on your device.</p></div></li>
+    </ol>
+  </div>
+</div></section>
+<section class="sec sec--band" id="remind"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ 02</span><h2 class="sec-title">Remind <em>me</em></h2><p class="sec-note meta">Optional · one email, plus one more a week later if you haven't uploaded</p></div>
+  <div class="sec-body">
+    <form id="remindForm" class="prose">
+      <p>Leave your email and we'll create your account and remind you when your export is likely ready, with a link to upload it. You'll get a sign-in link right away; the reminder is set once you click it.</p>
+      <div class="row" style="margin-top:var(--s-5)"><input type="email" id="remEmail" placeholder="you@example.com" required autocomplete="email">
+        <button class="btn btn--ink" type="submit">Create account <span class="arr">→</span></button></div>
+      <label class="check" style="margin-top:var(--s-4)"><input type="checkbox" id="remOn" checked> <span>Email me a reminder in <select id="remDays"><option>3</option><option selected>5</option><option>7</option><option>10</option><option>14</option></select> days. If I still haven't uploaded, remind me once more 7 days later. Every email has a one-click stop link.</span></label>
+      <p id="remMsg" class="small" style="margin-top:var(--s-4)"></p>
+    </form>
+  </div>
+</div></section>
+</main>
+<footer id="foot"></footer>
+<script src="static/js/common.js?v=1"></script>
+<script src="static/js/pages.js?v=1"></script>
+</body>
+</html>

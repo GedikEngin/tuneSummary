@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{BASE}}/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TuneSummary — your listening, summarised</title>
+<meta name="description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:title" content="TuneSummary — your listening, summarised">
+<meta property="og:description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#F1EEE6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%23C2410C'/%3E%3C/svg%3E">
+<script src="static/js/theme.js?v=1"></script>
+<link rel="stylesheet" href="static/css/fonts.css?v=1">
+<link rel="stylesheet" href="static/css/ts.css?v=1">
+</head>
+<body data-page="home">
+<header id="bar"></header>
+<main>
+
+<section class="hero"><div class="wrap">
+  <div class="meta" style="margin-bottom:var(--s-5)"><span class="signal">■</span> Free · open source · for Spotify listeners</div>
+  <h1>Your listening,<br><em>summarised.</em></h1>
+  <p class="lede">TuneSummary turns the data export Spotify gives you into real numbers: minutes, streams, top tracks, artists, albums and genres, for any date range, going back to the day you joined. <b>No year-end wait, no guessing.</b></p>
+  <div class="row"><a class="btn btn--ink" href="guide">Get started <span class="arr">→</span></a><a class="btn btn--line" href="app?demo=1">See a demo <span class="arr">→</span></a></div>
+</div></section>
+
+<section class="sec sec--band"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ 01</span><h2 class="sec-title">What you <em>get</em></h2><p class="sec-note meta">Fig. 01 shows sample data</p></div>
+  <div class="sec-body">
+    <figure>
+      <div class="fig-frame">
+        <div class="stats" style="background:var(--paper)">
+          <div class="stat big"><div class="meta">Minutes listened</div><div class="n">48,217</div><div class="d">804 hours · 33.5 days</div></div>
+          <div class="stat"><div class="meta">Streams</div><div class="n">11,904</div><div class="d">plays ≥ 30 s</div></div>
+          <div class="stat"><div class="meta">Top artist</div><div class="n sm">Radiohead</div><div class="d">3,412 min</div></div>
+          <div class="stat"><div class="meta">Longest streak</div><div class="n">96 days</div><div class="d">ended Aug 2 2026</div></div>
+          <div class="stat"><div class="meta">Favourite hour</div><div class="n">11 pm</div><div class="d">9% of your time</div></div>
+          <div class="stat"><div class="meta">Skipped</div><div class="n">23%</div><div class="d">of tracks</div></div>
+        </div>
+        <svg viewBox="0 0 600 120" style="margin-top:var(--s-5);width:100%;height:auto" aria-hidden="true">
+          <g fill="currentColor" style="color:var(--bar-fill)">
+          <rect x="4" y="60" width="38" height="56"/><rect x="54" y="44" width="38" height="72"/><rect x="104" y="70" width="38" height="46"/><rect x="154" y="30" width="38" height="86"/><rect x="204" y="52" width="38" height="64"/><rect x="254" y="38" width="38" height="78"/><rect x="304" y="18" width="38" height="98"/><rect x="354" y="48" width="38" height="68"/><rect x="404" y="34" width="38" height="82"/><rect x="454" y="58" width="38" height="58"/><rect x="504" y="26" width="38" height="90"/></g>
+          <rect x="554" y="8" width="38" height="108" fill="var(--signal)"/>
+        </svg>
+      </div>
+      <figcaption><span class="meta"><b>Fig. 01</b> · KPIs and minutes per month, sample account</span><span class="meta">Not real data</span></figcaption>
+    </figure>
+    <dl class="spec" style="margin-top:var(--s-6)">
+      <div><dt>Ranges</dt><dd>All time, since your last Wrapped cutoff, last 4 weeks, last 6 months, any year, any custom dates.</dd></div>
+      <div><dt>Top lists</dt><dd>Tracks, artists, albums, genres and podcasts, by minutes or streams, with a detail view for each.</dd></div>
+      <div><dt>Habits</dt><dd>Time of day, day of week, skips, shuffle, streaks, biggest day, new artists, devices and countries.</dd></div>
+      <div><dt>Your data</dt><dd>Download everything as JSON, or delete it all, any time.</dd></div>
+    </dl>
+  </div>
+</div></section>
+
+<section class="sec"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ 02</span><h2 class="sec-title">How it <em>works</em></h2></div>
+  <div class="sec-body">
+    <ol class="steps">
+      <li><div><h3>Ask Spotify for your data</h3><p>Spotify lets everyone download their full listening history ("Extended streaming history"). It takes a minute to request. <a class="u" href="guide">Step-by-step guide →</a></p></div></li>
+      <li><div><h3>Wait a few days</h3><p>Spotify says up to 30 days; it's usually a few. We can email you a reminder when it's likely ready.</p></div></li>
+      <li><div><h3>Upload the zip</h3><p>Your browser opens <code>my_spotify_data.zip</code> and sends only the list of plays. Upload again later and only new plays are added.</p></div></li>
+    </ol>
+  </div>
+</div></section>
+
+<section class="sec sec--band"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ 03</span><h2 class="sec-title">Privacy, <em>plainly</em></h2></div>
+  <div class="sec-body prose">
+    <p><b>We store your email address and your list of plays.</b> That's it: no Spotify password, no Spotify login, no access to your Spotify account. The other files in your export (account details, search history, inferences) never leave your browser.</p>
+    <p>We don't sell or share your data. There are no third-party trackers or analytics scripts; the server only counts page views. You can download or delete everything from your account page, and deletion is immediate.</p>
+    <p><a href="privacy">Read the privacy policy →</a></p>
+  </div>
+</div></section>
+
+<section class="sec"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ 04</span><h2 class="sec-title">Open <em>source</em></h2></div>
+  <div class="sec-body prose">
+    <p>TuneSummary is MIT-licensed. Read the code, run your own copy, or send a fix: <a href="https://github.com/GedikEngin/tuneSummary" target="_blank" rel="noopener">github.com/GedikEngin/tuneSummary ↗</a>. Genres come from <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, the open music encyclopedia.</p>
+    <p class="row" style="margin-top:var(--s-5)"><a class="btn btn--ink" href="guide">Get started <span class="arr">→</span></a></p>
+  </div>
+</div></section>
+</main>
+<footer id="foot"></footer>
+<script src="static/js/common.js?v=1"></script>
+
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{BASE}}/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your stats — TuneSummary</title>
+<meta name="description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:title" content="Your stats — TuneSummary">
+<meta property="og:description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#F1EEE6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%23C2410C'/%3E%3C/svg%3E">
+<script src="static/js/theme.js?v=1"></script>
+<link rel="stylesheet" href="static/css/fonts.css?v=1">
+<link rel="stylesheet" href="static/css/ts.css?v=1">
+</head>
+<body data-page="app">
+<header id="bar"></header>
+<main>
+
+<section class="sec" style="padding-top:var(--s-6)"><div class="wrap">
+  <div class="panel-head" style="border-bottom:1px solid var(--rule-strong);padding-bottom:var(--s-4)">
+    <div><div class="meta" id="who"></div><h1 class="display" style="font-size:var(--fs-h2);line-height:1">Your <em>listening</em></h1></div>
+    <span class="sp"></span>
+    <span class="meta" id="status"></span>
+    <div class="row" id="topBtns"><button class="btn btn--line btn--sm" id="btnUpload" type="button">Upload export</button><a class="btn btn--line btn--sm" href="account" id="lnkAccount">Account</a></div>
+  </div>
+
+  <div id="demoNote" class="callout hidden" style="margin-top:var(--s-5)"><div class="meta">Demo</div><p class="small">This is a made-up sample account so you can see what TuneSummary shows. <a class="u" href="guide">Get your own stats →</a></p></div>
+
+  <div id="importCard" class="hidden" style="margin-top:var(--s-5)">
+    <div class="callout" id="welcome" style="margin-bottom:var(--s-5)"><div class="meta">Welcome</div>
+      <p class="small">Upload <code>my_spotify_data.zip</code> from Spotify to see your stats. Don't have it yet? <a class="u" href="guide">Here's how to request it</a> (takes 2 minutes, then a few days). <span id="remState"></span></p></div>
+    <div id="drop">
+      <p class="display" style="font-size:var(--fs-h3)">Drop <em>my_spotify_data.zip</em> here</p>
+      <p class="small mut" style="margin:6px 0 var(--s-4)">or the <code>Streaming_History_Audio_*.json</code> files inside it</p>
+      <button class="btn btn--ink" id="btnPick" type="button">Choose file <span class="arr">→</span></button>
+      <input type="file" id="file" multiple accept=".json,.zip,application/zip,application/json" class="hidden">
+      <div class="prog hidden" id="upProg"><div></div></div>
+      <p class="small" id="upMsg" style="margin-top:var(--s-3)"></p>
+      <p class="small mut" style="margin-top:var(--s-4);max-width:62ch;margin-left:auto;margin-right:auto">The zip is opened in your browser. Only the plays (time, length, track, artist, album, skip/shuffle, device type, country) are sent. Upload again later and only new plays are added.</p>
+    </div>
+  </div>
+
+  <div id="dashView" class="hidden">
+    <div class="panel" style="margin-top:var(--s-5)">
+      <div class="seg" id="ranges"></div>
+      <div class="row" style="margin-top:var(--s-4)">
+        <span class="meta">Custom</span><input type="date" id="dFrom"><span class="mut">→</span><input type="date" id="dTo">
+        <button class="btn btn--line btn--sm" id="btnCustom" type="button">Apply</button>
+        <span style="flex:1"></span>
+        <span class="meta" title="Spotify Wrapped usually counts Jan 1 to mid-November">Last Wrapped cutoff</span><input type="date" id="dWrapped">
+      </div>
+      <p class="meta" style="margin-top:var(--s-4)" id="coverage"></p>
+    </div>
+    <div class="panel"><div class="panel-head"><h2 id="rangeTitle"></h2></div><div class="stats" id="kpis"></div></div>
+    <div class="ad-slot"></div>
+    <div class="panel">
+      <div class="panel-head"><h2>Listening over time</h2><span class="sp"></span>
+        <div class="seg"><button class="btn btn--line btn--sm on" data-tg="month" type="button">Month</button><button class="btn btn--line btn--sm" data-tg="week" type="button">Week</button><button class="btn btn--line btn--sm" data-tg="day" type="button">Day</button></div></div>
+      <div id="timeline" class="chart"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="seg" id="topTabs">
+        <button class="btn btn--line btn--sm on" data-t="tracks" type="button">Tracks</button><button class="btn btn--line btn--sm" data-t="artists" type="button">Artists</button><button class="btn btn--line btn--sm" data-t="albums" type="button">Albums</button><button class="btn btn--line btn--sm" data-t="genres" type="button">Genres</button><button class="btn btn--line btn--sm" data-t="shows" type="button">Podcasts</button></div>
+        <span class="sp"></span>
+        <select id="sortBy"><option value="ms">by minutes</option><option value="plays">by streams</option></select>
+        <input type="search" id="q" placeholder="Filter…"></div>
+      <p id="genreBox" class="small mut hidden" style="margin-bottom:var(--s-3)"></p>
+      <table class="list" id="topTable"></table>
+      <div class="row" style="justify-content:center;margin-top:var(--s-4)"><button class="btn btn--line btn--sm" id="btnMore" type="button">Show more</button></div>
+    </div>
+    <div class="cols">
+      <div class="panel"><h2>Time of day</h2><div id="hours" class="chart" style="margin-top:var(--s-4)"></div></div>
+      <div class="panel"><h2>Day of week</h2><div id="weekdays" class="chart" style="margin-top:var(--s-4)"></div></div>
+    </div>
+    <div class="cols">
+      <div class="panel"><h2>Habits</h2><div id="habits" style="margin-top:var(--s-3)"></div></div>
+      <div class="panel"><h2>Devices &amp; places</h2><div id="devices" style="margin-top:var(--s-3)"></div></div>
+    </div>
+    <p class="meta" style="text-align:center;margin-top:var(--s-5)">A stream = a play of 30 s or more · times are in your browser's time zone · genres from MusicBrainz</p>
+  </div>
+</div></section>
+<div id="modal"><div class="sheet" id="modalBody"></div></div>
+</main>
+<footer id="foot"></footer>
+<script src="static/js/common.js?v=1"></script>
+<script src="static/js/upload.js?v=1"></script>
+<script src="static/js/dash.js?v=1"></script>
+</body>
+</html>

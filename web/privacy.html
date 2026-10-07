@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{BASE}}/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — TuneSummary</title>
+<meta name="description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:title" content="Privacy — TuneSummary">
+<meta property="og:description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#F1EEE6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%23C2410C'/%3E%3C/svg%3E">
+<script src="static/js/theme.js?v=1"></script>
+<link rel="stylesheet" href="static/css/fonts.css?v=1">
+<link rel="stylesheet" href="static/css/ts.css?v=1">
+</head>
+<body data-page="privacy">
+<header id="bar"></header>
+<main>
+
+<section class="sec"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ —</span><h2 class="sec-title">Privacy <em>policy</em></h2><p class="sec-note meta">Last updated 7 October 2026</p></div>
+  <div class="sec-body prose">
+    <p>TuneSummary is a free, open source website run by Engin Gedik (gedik.tech) that shows listening statistics from the data export Spotify gives you. This page says what we store, why, and how to get rid of it. It's written to be read.</p>
+    <h3>What we store</h3>
+    <ul>
+      <li><b>Your email address</b>, to sign you in and, only if you ask for it, to send reminder emails.</li>
+      <li><b>Your plays</b> from the streaming history files you upload: time, how long you played, track, artist and album name (or podcast episode and show), Spotify track ID, whether it was skipped or on shuffle, the device type Spotify recorded (for example "android" or "Windows 10"), and the country code.</li>
+      <li><b>Account basics</b>: when you signed up and last signed in, when you uploaded, your reminder setting, and your plan (free or supporter).</li>
+      <li><b>A sign-in cookie</b> (<code>ts_session</code>) that keeps you signed in for up to 90 days. It's the only cookie we set. We store only a hash of it.</li>
+    </ul>
+    <h3>What we don't store</h3>
+    <p>Your zip file is opened <b>in your browser</b>. Only the streaming history is sent; the other files in Spotify's export (account details, IP addresses Spotify logged, search queries, inferences, payment information) never leave your device. We never see your Spotify password and never connect to your Spotify account. We don't record IP addresses with your account; our web server keeps standard access logs (IP, time, page) for up to 14 days for security, and short-lived rate-limit counters.</p>
+    <h3>How we use it</h3>
+    <p>Only to show you your statistics and to run the service. To label genres, artist names (not your plays, not your email) are looked up on <a href="https://musicbrainz.org" target="_blank" rel="noopener">MusicBrainz</a>, and the result is cached for everyone. We count page views and sign-ups on our own server, without cookies or identifiers. There are no third-party analytics or tracking scripts.</p>
+    <p><b>We don't sell, rent or share your data.</b> Email is sent through Google's Gmail service, so Google handles the messages we send you.</p>
+    <h3>Ads</h3>
+    <p>TuneSummary may show one ad slot to keep it free. If ads are switched on, the ad provider (Google AdSense) may set its own cookies and use them as described in <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener">Google's ad policy</a>; ads never get your listening data or email address. Supporters see no ads.</p>
+    <h3>Emails</h3>
+    <p>We send sign-in links when you ask for them, and reminder emails only if you tick the reminder box (at most two per request). Every reminder has a one-click stop link. No newsletters, no marketing.</p>
+    <h3>Your control</h3>
+    <ul>
+      <li><b>Download</b> everything we store about you as JSON from your <a href="account">account page</a>.</li>
+      <li><b>Delete</b> your plays, or your whole account and everything in it, from the same page. Deletion is immediate. Copies in our encrypted nightly server backups expire within 7 months.</li>
+      <li>Questions or requests: <a href="mailto:engin@gedik.tech">engin@gedik.tech</a>.</li>
+    </ul>
+    <h3>Where it's kept</h3>
+    <p>On a server in Oregon, USA (OVH), with encrypted backups. Data is kept until you delete it. Accounts with no sign-in for 2 years may be deleted.</p>
+    <h3>Children</h3>
+    <p>TuneSummary isn't meant for children under 13.</p>
+    <h3>Changes</h3>
+    <p>If this policy changes in a way that matters, we'll say so on this page and, for big changes, by email.</p>
+    <p class="mut small">TuneSummary is not affiliated with, endorsed by or sponsored by Spotify. Spotify is a trademark of Spotify AB.</p>
+  </div>
+</div></section>
+</main>
+<footer id="foot"></footer>
+<script src="static/js/common.js?v=1"></script>
+</body>
+</html>

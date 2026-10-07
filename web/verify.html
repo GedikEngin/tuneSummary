@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="{{BASE}}/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirm sign-in — TuneSummary</title>
+<meta name="description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:title" content="Confirm sign-in — TuneSummary">
+<meta property="og:description" content="Free, open source listening stats from your own Spotify data export: minutes, top tracks, artists, albums, genres, habits, any date range.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#F1EEE6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' fill='%23C2410C'/%3E%3C/svg%3E">
+<script src="static/js/theme.js?v=1"></script>
+<link rel="stylesheet" href="static/css/fonts.css?v=1">
+<link rel="stylesheet" href="static/css/ts.css?v=1">
+</head>
+<body data-page="verify">
+<header id="bar"></header>
+<main>
+
+<section class="sec"><div class="wrap sec-grid">
+  <div class="sec-rail"><span class="sec-no">§ —</span><h2 class="sec-title">One more <em>click</em></h2></div>
+  <div class="sec-body prose">
+    <form method="post" action="auth/verify" id="verifyForm">
+      <input type="hidden" name="t" value="{{TOKEN}}">
+      <p>Press the button to finish signing in. (This extra step stops email scanners from using up your one-time link.)</p>
+      <p style="margin-top:var(--s-5)"><button class="btn btn--ink" type="submit">Sign in to TuneSummary <span class="arr">→</span></button></p>
+    </form>
+    <p id="verifyBad" class="hidden">This sign-in link is incomplete. <a href="signin">Request a new one →</a></p>
+  </div>
+</div></section>
+</main>
+<footer id="foot"></footer>
+<script src="static/js/common.js?v=1"></script>
+<script src="static/js/pages.js?v=1"></script>
+</body>
+</html>
