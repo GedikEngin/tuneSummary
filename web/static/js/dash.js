@@ -113,6 +113,8 @@ function update() {
   AGG = aggregate(VIEW);
   renderRanges();
   $('#rangeTitle').textContent = title;
+  // the recap picks "since last cutoff" by default; pass a year if one is selected here
+  $('#btnRecap').href = 'recap' + (DEMO ? '?demo=1' : '') + (range.key === 'year' ? (DEMO ? '&' : '?') + 'p=' + range.y : '');
   topLimit = 50;
   renderKpis(a, b); renderTimeline(); renderTop(); renderClock(); renderHabits();
 }

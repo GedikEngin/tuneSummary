@@ -1,0 +1,45 @@
+/* Recap story: a cover page in the Survey style, then a full-screen canvas player. */
+.rc-body { background: var(--paper); }
+.rc-cover { min-height: 100vh; display: flex; align-items: center; }
+.rc-cover-in { max-width: 760px; margin: 0 auto; padding: var(--s-7) var(--gutter); width: 100%; }
+.rc-h1 { font-size: clamp(3rem, 9vw, 6.2rem); line-height: .92; letter-spacing: -.03em; margin-top: var(--s-3); }
+.rc-h1 em { color: var(--signal); }
+.rc-field { margin-top: var(--s-5); }
+.rc-field .meta { display: block; margin-bottom: var(--s-2); }
+.rc-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.rc-name { font: inherit; font-size: 1rem; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--radius); background: transparent; color: var(--ink); width: min(340px, 100%); }
+.rc-play { margin-top: var(--s-6); font-size: .85rem; padding: 16px 26px; }
+.rc-note { margin-top: var(--s-4); max-width: 60ch; }
+
+.rc-stage { position: fixed; inset: 0; z-index: 50; background: #0d0d0b; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: background-color .4s var(--ease); }
+.rc-frame { position: relative; flex: none; }
+.rc-frame canvas { display: block; width: 100%; height: 100%; }
+@media (min-width: 700px) { .rc-frame { box-shadow: 0 30px 80px rgba(0, 0, 0, .35); border-radius: 10px; overflow: hidden; } }
+.rc-bars { position: absolute; left: 12px; right: 12px; top: max(10px, env(safe-area-inset-top)); display: flex; gap: 5px; z-index: 3; }
+.rc-bars span { flex: 1; height: 3px; background: rgba(128, 128, 128, .35); border-radius: 2px; overflow: hidden; }
+.rc-bars i { display: block; height: 100%; width: 0; background: currentColor; }
+.rc-top { position: absolute; right: 8px; top: calc(max(10px, env(safe-area-inset-top)) + 14px); display: flex; gap: 6px; justify-content: flex-end; z-index: 4; }
+.rc-ic { background: none; border: 0; color: inherit; font: 500 15px/1 var(--f-mono); width: 38px; height: 38px; cursor: pointer; border-radius: 50%; }
+.rc-ic:hover { background: rgba(128, 128, 128, .18); }
+.rc-tap { position: absolute; inset: 0; z-index: 2; cursor: pointer; }
+.rc-tools { position: absolute; left: 10px; right: 10px; bottom: max(18px, env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; z-index: 4; }
+.rc-btn { font: 500 var(--fs-meta)/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; padding: 11px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid currentColor; background: transparent; color: inherit; backdrop-filter: blur(6px); }
+.rc-btn:hover { background: rgba(128, 128, 128, .2); }
+.rc-btn.solid { background: currentColor; }
+.rc-btn.solid span { color: var(--rc-bg, #121310); }
+.rc-btn:disabled { opacity: .45; cursor: default; }
+.rc-cta { position: absolute; left: 7%; right: 7%; bottom: 13%; z-index: 5; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.rc-cta .rc-btn { padding: 15px 18px; font-size: .78rem; text-align: center; text-decoration: none; }
+.rc-cta .ink { background: #FF7A3D; border-color: #FF7A3D; color: #151513; }
+.rc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.rc-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(10, 10, 9, .72); display: flex; align-items: center; justify-content: center; padding: var(--s-5); }
+.rc-sheet { background: var(--paper); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: var(--radius); max-width: 460px; width: 100%; padding: var(--s-5); }
+.rc-sheet h2 { font-family: var(--f-display); font-weight: 400; font-size: var(--fs-h3); line-height: 1.1; margin: var(--s-2) 0 var(--s-3); }
+.rc-sheet .row { margin-top: var(--s-4); }
+.rc-adbox { margin-top: var(--s-4); aspect-ratio: 16 / 9; border: 1px dashed var(--rule-strong); display: flex; align-items: center; justify-content: center; text-align: center;
+  background: repeating-linear-gradient(45deg, var(--paper-2), var(--paper-2) 10px, var(--paper) 10px, var(--paper) 20px); padding: var(--s-4); }
+.rc-prev { margin-top: var(--s-4); max-height: 46vh; width: auto; max-width: 100%; display: block; margin-left: auto; margin-right: auto; border: 1px solid var(--rule); }
+@media (prefers-reduced-motion: reduce) { .rc-stage { transition: none; } }
