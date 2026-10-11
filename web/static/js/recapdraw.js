@@ -99,7 +99,7 @@ const RecapDraw = (() => {
     const top = o.live ? 112 : 84;
     square(g, 80, top - 22, 22, pal.acc === pal.bg ? pal.ink : pal.acc);
     mono(g, 'TuneSummary', 118, top, pal.ink, {size: 26});
-    if (o.live) { font(g, 26, 'mono'); spacing(g, 3); const w = g.measureText('TUNESUMMARY').width; spacing(g, 0); mono(g, '/ ' + label, 118 + w + 22, top, pal.mut, {size: 26, maxW: W - 420 - w}); }
+    if (o.live) { font(g, 26, 'mono'); spacing(g, 3); const w = g.measureText('TUNESUMMARY').width; spacing(g, 0); mono(g, '/ ' + label, 118 + w + 22, top, pal.mut, {size: 26, maxW: W - 540 - w}); }
     else mono(g, label, W - 80, top, pal.mut, {size: 26, align: 'right'});
     rule(g, 80, top + 26, W - 80, pal.ink, 0.25);
     if (!o.live) {

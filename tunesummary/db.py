@@ -75,6 +75,9 @@ CREATE TABLE IF NOT EXISTS live_refreshes (
     done_at REAL
 );
 CREATE INDEX IF NOT EXISTS live_refreshes_user ON live_refreshes(user_id, done_at);
+-- Song previews for the recap (shared cache): k as in track_lengths, source NULL = no preview found (see previews.py).
+CREATE TABLE IF NOT EXISTS previews (k TEXT PRIMARY KEY, source TEXT, ref TEXT, url TEXT, link TEXT, title TEXT, artist TEXT,
+    checked_at REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS counters (day TEXT NOT NULL, name TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, name));
 """
 

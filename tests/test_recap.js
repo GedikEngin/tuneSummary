@@ -117,6 +117,20 @@ function drawAll(label, R, opts) {
   const long = RD.compute([{t: Date.UTC(2025, 3, 1, 12), ms: 200000, tr: 'A Very Long Track Title That Goes On And On (Extended Remastered Version 2011)', ar: 'The Extraordinarily Long Named Orchestra and Friends', al: 'X'}], {}, yearOf());
   drawAll('long-names', long, {check: true});
 
+  // soundtrack: which song plays under which slide
+  {
+    const R = outs[0], st = RD.soundtrack(R, DR.FULL), k = s => s.artist + ' / ' + s.track;
+    ok(st.tracks && st.tracks.track === R.topTracks[0].name && st.outro.track === R.topTracks[0].name, 'soundtrack: #1 song under top tracks + finale');
+    ok(st.artist && st.artist.artist === R.topArtist.name && st.artist.track === R.topArtistTrack.name, "soundtrack: top artist's own biggest song under their slide");
+    ok(DR.FULL.every(id => st[id]), 'soundtrack: every full-story slide has a song');
+    const middle = ['intro', 'minutes', 'genres', 'clock', 'persona'].map(id => k(st[id]));
+    ok(new Set(middle).size >= Math.min(4, R.topTracks.length - 1), 'soundtrack: other slides spread over the top songs: ' + middle.join(' | '));
+    const free = RD.soundtrack(R, DR.FREE);
+    ok(!free.locked && free.intro && free.outro, 'soundtrack: paywall slide is silent');
+    const st1 = RD.soundtrack(one, DR.FULL);
+    ok(Object.values(st1).every(s => s.track === 'Only'), 'soundtrack: one-song period plays that song');
+  }
+
   const zip = process.argv[2];
   if (zip) {
     // parse the export with the real upload.js parser, then recap it

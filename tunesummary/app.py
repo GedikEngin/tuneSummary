@@ -20,7 +20,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import emails, ingest, lastfm, lastfm_care
+from . import emails, ingest, lastfm, lastfm_care, previews
 from .db import DB
 from .genres import GenreWorker
 from .mailer import CapReached, Mailer
@@ -40,6 +40,7 @@ RECAP_GATE = os.environ.get("TS_RECAP_GATE", "off").strip().lower()  # off | ad 
 RECAP_AD_SECONDS = int(os.environ.get("TS_RECAP_AD_SECONDS", "15"))  # rewarded-ad placeholder length
 LASTFM_KEY = os.environ.get("TS_LASTFM_API_KEY", "").strip()            # empty = no Last.fm features anywhere
 LASTFM_SECRET = os.environ.get("TS_LASTFM_SHARED_SECRET", "").strip()   # set = verify ownership via Last.fm web auth
+PREVIEWS_ON = os.environ.get("TS_PREVIEWS", "on").strip().lower() not in ("off", "0", "false", "no")  # recap soundtrack
 LIVE_GATE = os.environ.get("TS_LIVE_GATE", "off").strip().lower()       # off | ad | supporter (who can refresh, see README)
 LIVE_AD_SECONDS = int(os.environ.get("TS_LIVE_AD_SECONDS", str(RECAP_AD_SECONDS)))
 LIVE_AD_HOURS = float(os.environ.get("TS_LIVE_AD_HOURS", "3"))          # one ad-paid refresh per this many hours
@@ -58,6 +59,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 db = DB(str(DATA_DIR / "tunesummary.db"))
 mailer = Mailer(db, DATA_DIR)
 genres = GenreWorker(db)
+prev = previews.Previews(db)
 lfm = lastfm.Client(LASTFM_KEY, LASTFM_SECRET) if LASTFM_KEY else None
 # Users linked before the connection-health emails existed get their "expires soon" date from when they linked.
 db.x("UPDATE users SET lastfm_headsup_due=lastfm_linked_at+? WHERE lastfm_user IS NOT NULL AND lastfm_headsup_due IS NULL",
@@ -101,7 +103,8 @@ async def headers(request: Request, call_next):
     resp.headers["Referrer-Policy"] = "same-origin"
     resp.headers["X-Frame-Options"] = "DENY"
     if request.url.path.startswith(BASE + "/api/") or request.url.path.startswith(BASE + "/auth"):
-        resp.headers["Cache-Control"] = "no-store"
+        if "cache-control" not in resp.headers:  # song previews set their own
+            resp.headers["Cache-Control"] = "no-store"
     return resp
 
 
@@ -446,6 +449,36 @@ async def api_recap_unlock_finish(req: Request):
         db.x("UPDATE recap_unlocks SET done_at=? WHERE nonce_hash=?", (time.time(), H(nonce)))
         db.count("recap_unlock_ad")
     return {"full": True}
+
+
+@r.get("/api/preview")
+def api_preview(req: Request, a: str = "", t: str = ""):
+    """30-second preview of one song for the recap soundtrack (audio bytes, proxied; see previews.py).
+    Open to the demo too, so it's limited per IP; cached matches are cheap, new lookups have their own cap."""
+    if not PREVIEWS_ON:
+        raise HTTPException(404, "previews are off")
+    a, t = a.strip()[:200], t.strip()[:300]
+    if not a or not t:
+        raise HTTPException(400, "artist and track needed")
+    ip = client_ip(req)
+    if limited("preview:" + ip, 240, 3600):
+        raise HTTPException(429, "Too many previews. Try again later.")
+    cached = db.one("SELECT 1 FROM previews WHERE k=?", (previews.key(a, t),))
+    if not cached and limited("previewlookup:" + ip, 60, 3600):
+        raise HTTPException(429, "Too many previews. Try again later.")
+    try:
+        got = prev.audio(a, t)
+    except httpx.HTTPError as e:
+        log.info("preview failed: %s", e)
+        raise HTTPException(502, "preview unavailable")
+    if not got:
+        raise HTTPException(404, "no preview for this song")
+    body, ctype, p = got
+    db.count("preview")
+    return Response(body, media_type=ctype, headers={
+        "Cache-Control": "private, max-age=86400", "X-Preview-Source": p["source"],
+        "X-Preview-Link": urllib.parse.quote(p["link"] or "", safe=":/?=&"),
+        "X-Preview-Title": urllib.parse.quote(p["title"] or ""), "X-Preview-Artist": urllib.parse.quote(p["artist"] or "")})
 
 
 # ---------------- live updates via Last.fm ----------------

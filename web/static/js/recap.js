@@ -69,7 +69,11 @@
       ${lock}
       ${DEMO ? '<p class="small mut rc-note">This is the made-up demo account. <a class="u" href="guide">Get your own →</a></p>' : ''}
       <p class="meta rc-note">Made in your browser from your own export · nothing is posted anywhere</p>`;
-    const info = () => { $('#pInfo').textContent = RecapData.compute(DATA.rows, DATA.genres, period).plays.toLocaleString('en-US') + ' plays in this period'; };
+    const info = () => {
+      const r = RecapData.compute(DATA.rows, DATA.genres, period);
+      $('#pInfo').textContent = r.plays.toLocaleString('en-US') + ' plays in this period';
+      if (SND && !r.empty) RecapAudio.load(RecapData.soundtrack(r, ACCESS.full || DEMO ? D.FULL : D.FREE));  // prefetch the songs
+    };
     info();
     $('#chips').onclick = e => { const b = e.target.closest('button[data-k]'); if (!b) return; period = PERIODS.find(p => p.key === b.dataset.k); $$('#chips button').forEach(x => x.classList.toggle('on', x === b)); info(); };
     $('#nm').oninput = e => { name = e.target.value.trim().slice(0, 28); try { localStorage.setItem('ts-recap-name', name); } catch (er) {} };
@@ -79,10 +83,16 @@
   // ---------- player ----------
   const fontsReady = () => document.fonts ? Promise.all(['400 100px "Instrument Serif"', 'italic 400 100px "Instrument Serif"', '400 30px "IBM Plex Mono"', '400 40px "IBM Plex Sans"']
     .map(f => document.fonts.load(f).catch(() => null))) : Promise.resolve();
-  function buildSlides() { slides = ACCESS.full || DEMO ? D.FULL : D.FREE; }
+  function buildSlides() {
+    slides = ACCESS.full || DEMO ? D.FULL : D.FREE;
+    if (SND && R) RecapAudio.load(RecapData.soundtrack(R, slides));
+  }
+  const SND = typeof RecapAudio !== 'undefined' && RecapAudio.supported;
+  let audioRunning = null;
   async function play(start = 0) {
     R = RecapData.compute(DATA.rows, DATA.genres, period);
     if (R.empty) return;
+    if (SND) RecapAudio.unlock();  // before any await: needs the click's user gesture
     buildSlides();
     await fontsReady();
     $('#cover').classList.add('hidden'); $('#stage').classList.remove('hidden');
@@ -95,12 +105,14 @@
   }
   function close() {
     cancelAnimationFrame(raf); raf = 0;
+    if (SND) RecapAudio.stop();
     $('#stage').classList.add('hidden'); $('#cover').classList.remove('hidden');
     document.body.style.overflow = '';
   }
   const lum = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; };
   function go(i) {
     idx = Math.max(0, Math.min(slides.length - 1, i)); el = 0; drawnKey = '';
+    if (SND) RecapAudio.slide(slides[idx]);
     const id = slides[idx], bgc = D.bgOf(id, R), light = lum(bgc) > 0.6;
     $('#frame').style.color = light ? '#151513' : '#F1EEE6';
     $('#stage').style.background = innerWidth < 700 ? bgc : (light ? '#2a2925' : '#0b0b0a');
@@ -139,7 +151,9 @@
   function tick(now) {
     const dt = last ? Math.min(100, now - last) : 0; last = now;
     const id = slides[idx], dur = LIVE[id];
-    if (!paused && !hold && !document.hidden && $('#overlay').classList.contains('hidden')) {
+    const running = !paused && !hold && !document.hidden && $('#overlay').classList.contains('hidden');
+    if (SND && running !== audioRunning) { audioRunning = running; RecapAudio.pause(!running); }
+    if (running) {
       el = Math.min(el + dt, HOLD.has(id) ? dur * 1000 : el + dt);
       if (el >= dur * 1000 && !HOLD.has(id)) go(idx + 1);
     }
@@ -154,6 +168,7 @@
   $('#tap').addEventListener('pointerdown', e => { downAt = performance.now(); clearTimeout(holdT); holdT = setTimeout(() => { hold = true; }, 220); });
   $('#tap').addEventListener('pointerup', e => {
     clearTimeout(holdT);
+    if (SND) RecapAudio.unlock();  // e.g. ?autoplay=1 started without a click
     if (hold) { hold = false; return; }
     const r = $('#tap').getBoundingClientRect();
     if (e.clientX - r.left < r.width * 0.33) { if (el > 1500 && idx === 0) el = 0; else go(idx - 1); } else go(idx + 1);
@@ -166,9 +181,26 @@
     if (e.key === 'ArrowRight') go(idx + 1);
     else if (e.key === 'ArrowLeft') go(idx - 1);
     else if (e.key === ' ') { e.preventDefault(); setPaused(!paused); }
+    else if ((e.key === 'm' || e.key === 'M') && SND) $('#bSnd').click();
     else if (e.key === 'Escape') close();
   });
   $('#bPause').onclick = () => setPaused(!paused);
+  // sound: mute toggle + "now playing" line (DOM, so it's never in saved images)
+  const sndIcon = () => { const b = $('#bSnd'); b.textContent = '♪'; b.classList.toggle('off', RecapAudio.muted);
+    b.setAttribute('aria-label', RecapAudio.muted ? 'Turn sound on' : 'Mute'); b.setAttribute('aria-pressed', String(RecapAudio.muted)); };
+  if (SND) {
+    $('#bSnd').classList.remove('hidden'); sndIcon();
+    $('#bSnd').onclick = () => { RecapAudio.unlock(); RecapAudio.setMuted(!RecapAudio.muted); sndIcon(); };
+    const SRC = {deezer: 'Deezer', itunes: 'Apple Music'};
+    RecapAudio.onNow = m => {
+      const n = $('#now');
+      if (!m) { n.classList.add('hidden'); return; }
+      n.innerHTML = `<span aria-hidden="true">♪</span> <b>${esc(m.title)}</b> · ${esc(m.artist)}` +
+        (m.source ? ` <span class="rc-src">${m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener">preview: ${SRC[m.source] || esc(m.source)}</a>` : 'preview: ' + (SRC[m.source] || esc(m.source))}</span>` : '');
+      n.classList.remove('hidden');
+    };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { audioRunning = false; RecapAudio.pause(true); } });
+  }
   $('#bClose').onclick = close;
   $('#bReplay').onclick = () => go(0);
   let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (raf) layout(); }, 120); });

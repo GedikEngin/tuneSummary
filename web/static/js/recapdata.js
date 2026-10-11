@@ -116,6 +116,9 @@ const RecapData = (() => {
     R.topArtist = R.topArtists[0];
     R.topTracks = [...tracks.values()].sort((x, y) => (y.plays - x.plays) || (y.ms - x.ms) || x.name.localeCompare(y.name)).slice(0, 5)
       .map(x => ({name: x.name, artist: x.artist, plays: x.plays, minutes: Math.round(x.ms / 60000)}));
+    const byPlays = (x, y) => (y.plays - x.plays) || (y.ms - x.ms) || x.name.localeCompare(y.name);
+    const tat = [...tracks.values()].filter(x => x.artist === R.topArtist.name).sort(byPlays)[0];
+    R.topArtistTrack = tat ? {name: tat.name, artist: tat.artist} : null;
 
     // genres: each artist's MusicBrainz genres (weighted), times that artist's minutes
     const gm = new Map(); let covered = 0;
@@ -170,6 +173,28 @@ const RecapData = (() => {
     return R;
   }
 
-  return {decode, cutoff, periods, pickPeriod, compute, archetype, ARCHETYPES};
+  // ---------- soundtrack ----------
+  // Which song plays under each slide (30-second previews, like Wrapped): the #1 song under the top-tracks list and the
+  // finale, the top artist's own biggest song under their slide, the one-day repeat under the big-days slide, and the
+  // rest of the top five spread over the other slides so the story doesn't loop one song. The paywall slide is silent.
+  const PREFER = {intro: ['t1', 't2', 't0'], minutes: ['t2', 't1', 't3'], artist: ['a'], tracks: ['t0'], genres: ['t3', 't4', 't1'],
+    clock: ['t4', 't3', 't2'], days: ['r', 't1', 't4'], persona: ['t2', 't1', 't3'], outro: ['t0']};
+  function soundtrack(R, slides) {
+    const pool = {a: R.topArtistTrack, r: R.habits && R.habits.dayRepeat ? {name: R.habits.dayRepeat.track, artist: R.habits.dayRepeat.artist} : null};
+    (R.topTracks || []).forEach((t, i) => { pool['t' + i] = t; });
+    const k = t => (t.artist + '\u0001' + t.name).toLowerCase(), used = new Map(), out = {};
+    for (const id of slides) {
+      const pref = (PREFER[id] || []).map(p => pool[p]).filter(Boolean);
+      if (!pref.length) continue;
+      // first preference not used yet, else the least-used one (always the first choice for 'tracks'/'outro'/'artist')
+      const t = id === 'tracks' || id === 'outro' || id === 'artist' ? pref[0]
+        : pref.find(x => !used.has(k(x))) || pref.slice().sort((x, y) => used.get(k(x)) - used.get(k(y)))[0];
+      used.set(k(t), (used.get(k(t)) || 0) + 1);
+      out[id] = {artist: t.artist, track: t.name};
+    }
+    return out;
+  }
+
+  return {decode, cutoff, periods, pickPeriod, compute, archetype, ARCHETYPES, soundtrack};
 })();
 if (typeof module !== 'undefined') module.exports = RecapData;

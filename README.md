@@ -65,6 +65,15 @@ Every slide is drawn on a canvas by one function per slide (`web/static/js/recap
 1080×1920 PNG of each slide and the video (MediaRecorder, MP4 where supported, else WebM) all come from the same code.
 Numbers come from `recapdata.js` (pure functions, tested in node). `recap?demo=1` uses the demo account.
 
+**Soundtrack.** Like Wrapped, the user's own songs play under the slides as 30-second previews: the #1 song under the
+top-tracks slide and the summary card, the top artist's biggest song under the artist slide, the one-day repeat under the
+big-days slide, the rest of the top five spread over the others (`RecapData.soundtrack`; the paywall slide is silent).
+`GET /api/preview?a=<artist>&t=<track>` finds the song on Deezer (falling back to the iTunes Search API), caches the match
+for everyone in `previews`, and proxies the audio, so the browser decodes it with Web Audio (crossfades, pause with the
+story) and the visitor's IP never reaches Deezer/Apple (`tunesummary/previews.py`, `web/static/js/recapaudio.js`).
+A mute button (or `M`) is remembered per browser; the playing song and its source are shown under the slide (not in saved
+images). Exported videos stay silent: previews may be streamed, not redistributed. `TS_PREVIEWS=off` turns it off.
+
 Access is set by `TS_RECAP_GATE`:
 
 | Value | Who gets the full story + video |
@@ -121,6 +130,7 @@ Configuration is all environment variables; see `.env.example`. Notable ones:
 | `TS_RECAP_AD_SECONDS` | length of the rewarded-ad placeholder (default 15) |
 | `TS_LASTFM_API_KEY` / `_SHARED_SECRET` | enables Last.fm live updates (hidden when empty); the secret switches linking to Last.fm web auth |
 | `TS_LIVE_GATE` | `off` / `ad` / `supporter`: who can refresh from Last.fm (see above) |
+| `TS_PREVIEWS` | `on` (default) / `off`: song previews under the recap slides |
 
 ## Tests
 
@@ -135,7 +145,7 @@ node tests/test_recap.js [path/to/my_spotify_data.zip]  # recap numbers, archety
 `users` (email, plan `free|supporter`, reminder state), `sessions` and `login_tokens` (only SHA-256 hashes
 are stored), `plays` (unique on user, timestamp, track, episode; `source` NULL = export, `lastfm` = scrobble), `artists` (shared genre cache),
 `recap_unlocks` (rewarded-ad views, by session hash), `live_refreshes` (ad-paid Last.fm refreshes), `track_lengths`
-(shared Last.fm track-length cache), `counters` (daily page-view / sign-up counts, no identifiers).
+(shared Last.fm track-length cache), `previews` (shared song-preview matches), `counters` (daily page-view / sign-up counts, no identifiers).
 
 ## License
 
