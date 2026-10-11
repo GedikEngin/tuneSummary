@@ -125,6 +125,7 @@ function drawAll(label, R, opts) {
     ok(DR.FULL.every(id => st[id]), 'soundtrack: every full-story slide has a song');
     const middle = ['intro', 'minutes', 'genres', 'clock', 'persona'].map(id => k(st[id]));
     ok(new Set(middle).size >= Math.min(4, R.topTracks.length - 1), 'soundtrack: other slides spread over the top songs: ' + middle.join(' | '));
+    ok(DR.FULL.every((id, i) => !i || k(st[id]) !== k(st[DR.FULL[i - 1]])), 'soundtrack: never the same song on two slides in a row');
     const free = RD.soundtrack(R, DR.FREE);
     ok(!free.locked && free.intro && free.outro, 'soundtrack: paywall slide is silent');
     const st1 = RD.soundtrack(one, DR.FULL);

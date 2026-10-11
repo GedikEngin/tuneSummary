@@ -53,13 +53,13 @@ const RecapAudio = (() => {
   }
   function stop() { if (cur) fadeOut(cur); cur = null; onNow(null); }
 
-  // The story moved to slide `id`: keep the song if it's the same one, else crossfade to this slide's song (or silence).
+  // The story moved to slide `id`: crossfade to this slide's song from its start (or to silence). Each slide lasts about
+  // one preview, so even a repeated song starts over.
   function slide(id) {
     if (!ctx) return;
     const s = plan[id];
     if (!s) { stop(); return; }
     const k = key(s);
-    if (cur && cur.k === k && !cur.ended) return;
     stop();
     const p = bufs.get(k);
     if (!p) return;

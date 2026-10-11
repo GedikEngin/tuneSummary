@@ -183,15 +183,21 @@ const RecapData = (() => {
     const pool = {a: R.topArtistTrack, r: R.habits && R.habits.dayRepeat ? {name: R.habits.dayRepeat.track, artist: R.habits.dayRepeat.artist} : null};
     (R.topTracks || []).forEach((t, i) => { pool['t' + i] = t; });
     const k = t => (t.artist + '\u0001' + t.name).toLowerCase(), used = new Map(), out = {};
-    for (const id of slides) {
+    const FIXED = new Set(['tracks', 'outro', 'artist']);
+    const all = Object.values(pool).filter(Boolean);
+    slides.forEach((id, i) => {
       const pref = (PREFER[id] || []).map(p => pool[p]).filter(Boolean);
-      if (!pref.length) continue;
-      // first preference not used yet, else the least-used one (always the first choice for 'tracks'/'outro'/'artist')
-      const t = id === 'tracks' || id === 'outro' || id === 'artist' ? pref[0]
-        : pref.find(x => !used.has(k(x))) || pref.slice().sort((x, y) => used.get(k(x)) - used.get(k(y)))[0];
+      if (!pref.length) return;
+      // Fixed slides always get their song. Others: first preference not used yet, else the least-used one, never the
+      // same song as the slide before or a fixed slide right after (when there's anything else to play).
+      const near = new Set([out[slides[i - 1]], FIXED.has(slides[i + 1]) ? (pool[(PREFER[slides[i + 1]] || [])[0]] || null) : null]
+        .filter(Boolean).map(x => k(x.name ? x : {artist: x.artist, name: x.track})));
+      const opts = [...pref, ...all.filter(x => !pref.includes(x))].filter(x => !near.has(k(x)));
+      const t = FIXED.has(id) ? pref[0]
+        : opts.find(x => !used.has(k(x))) || opts.slice().sort((x, y) => (used.get(k(x)) || 0) - (used.get(k(y)) || 0))[0] || pref[0];
       used.set(k(t), (used.get(k(t)) || 0) + 1);
       out[id] = {artist: t.artist, track: t.name};
-    }
+    });
     return out;
   }
 

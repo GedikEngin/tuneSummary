@@ -6,8 +6,8 @@
   const DEMO = Q.get('demo') === '1';
   const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const D = RecapDraw, W = D.W;
-  // seconds per slide: live story / video
-  const LIVE = {intro: 4.5, minutes: 6, artist: 6, tracks: 7, genres: 7, clock: 7, days: 7.5, persona: 7.5, outro: 8, locked: 9};
+  // seconds per slide: live story (one full 30-second song preview per slide, or until the user taps on) / video
+  const LIVE = {intro: 30, minutes: 30, artist: 30, tracks: 30, genres: 30, clock: 30, days: 30, persona: 30, outro: 30, locked: 30};
   const VID = {intro: 3, minutes: 3.6, artist: 3.4, tracks: 3.6, genres: 3.6, clock: 3.6, days: 3.8, persona: 3.6, outro: 4};
   const HOLD = new Set(['locked', 'outro']); // don't auto-advance past these
 

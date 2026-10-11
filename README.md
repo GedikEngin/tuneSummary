@@ -65,7 +65,8 @@ Every slide is drawn on a canvas by one function per slide (`web/static/js/recap
 1080×1920 PNG of each slide and the video (MediaRecorder, MP4 where supported, else WebM) all come from the same code.
 Numbers come from `recapdata.js` (pure functions, tested in node). `recap?demo=1` uses the demo account.
 
-**Soundtrack.** Like Wrapped, the user's own songs play under the slides as 30-second previews: the #1 song under the
+**Soundtrack.** Like Wrapped, the user's own songs play under the slides as 30-second previews, and each slide stays up
+for one preview (30 s) unless the user taps on: the #1 song under the
 top-tracks slide and the summary card, the top artist's biggest song under the artist slide, the one-day repeat under the
 big-days slide, the rest of the top five spread over the others (`RecapData.soundtrack`; the paywall slide is silent).
 `GET /api/preview?a=<artist>&t=<track>` finds the song on Deezer (falling back to the iTunes Search API), caches the match
